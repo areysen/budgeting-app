@@ -9,7 +9,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const supabase = createServerSupabaseClient(cookies);
+  const supabase = createServerSupabaseClient(await cookies());
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   const { data: item, error: itemError } = await supabase
     .from('plaid_items')
     .select('access_token')
-    .eq('id', plaidItemId)
+    .eq('plaid_item_id', plaidItemId)
     .single();
 
   if (itemError || !item?.access_token) {

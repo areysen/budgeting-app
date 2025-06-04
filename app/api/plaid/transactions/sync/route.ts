@@ -9,7 +9,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const supabase = createServerSupabaseClient(cookies);
+  const supabase = createServerSupabaseClient(await cookies());
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -31,8 +31,8 @@ export async function POST(req: Request) {
 
   const { data: item, error: itemError } = await supabase
     .from('plaid_items')
-    .select('access_token, last_cursor')
-    .eq('id', plaidItemId)
+    .select('access_token')
+    .eq('plaid_item_id', plaidItemId)
     .single();
 
   if (itemError || !item?.access_token) {
@@ -46,19 +46,15 @@ export async function POST(req: Request) {
   const plaid = getPlaidClient();
 
   try {
-    const cursor = item.last_cursor ?? null;
     let hasMore = true;
     let added: unknown[] = [];
-    let newCursor = cursor;
 
     while (hasMore) {
       const response = await plaid.transactionsSync({
         access_token: item.access_token,
-        cursor: newCursor || undefined,
       });
 
       added = [...added, ...response.added];
-      newCursor = response.next_cursor;
       hasMore = response.has_more;
     }
 
@@ -83,19 +79,6 @@ export async function POST(req: Request) {
       console.error("Supabase insert error:", insertError);
       return NextResponse.json(
         { error: "Failed to insert transactions" },
-        { status: 500 }
-      );
-    }
-
-    const { error: cursorUpdateError } = await supabase
-      .from("plaid_items")
-      .update({ last_cursor: newCursor })
-      .eq("id", plaidItemId);
-
-    if (cursorUpdateError) {
-      console.error("Cursor update error:", cursorUpdateError);
-      return NextResponse.json(
-        { error: "Failed to update cursor" },
         { status: 500 }
       );
     }

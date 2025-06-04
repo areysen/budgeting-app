@@ -12,16 +12,17 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/auth-helpers-react": "^0.5.0",
-    "@supabase/supabase-js": "^2.49.9",
+    "@supabase/supabase-js": "^2.49.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "next": "15.3.3",
+    "plaid": "^35.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-plaid-link": "^4.0.1",
-    "plaid": "^13.4.0",
-    "tailwind-merge": "^3.3.0"
+    "tailwind-merge": "^3.3.0",
+    "zod": "^3.25.51"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
