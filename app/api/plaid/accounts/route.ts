@@ -6,7 +6,6 @@ import { z } from "zod";
 
 const requestSchema = z.object({
   plaidItemId: z.string(),
-  accessToken: z.string(),
 });
 
 export async function POST(req: Request) {
@@ -23,11 +22,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { plaidItemId, accessToken } = parsed.data;
+  const { plaidItemId } = parsed.data;
+
+  const { data: item, error: itemError } = await supabase
+    .from('plaid_items')
+    .select('access_token')
+    .eq('id', plaidItemId)
+    .single();
+
+  if (itemError || !item?.access_token) {
+    console.error('Failed to retrieve access token', itemError);
+    return NextResponse.json(
+      { error: 'Missing access token' },
+      { status: 500 }
+    );
+  }
+
   const plaid = getPlaidClient();
 
   try {
-    const response = await plaid.accountsGet({ access_token: accessToken });
+    const response = await plaid.accountsGet({ access_token: item.access_token });
 
     const inserts = response.accounts.map((account) => ({
       plaid_account_id: account.account_id,
