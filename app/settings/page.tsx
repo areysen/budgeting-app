@@ -1,6 +1,7 @@
-// Example: app/settings/page.tsx
+import { AuthGuard } from "@/components/auth/AuthGuard"
 export default function SettingsPage() {
   return (
+    <AuthGuard>
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
 
@@ -24,5 +25,6 @@ export default function SettingsPage() {
         <div className="text-sm text-muted-foreground">[Placeholder for Plaid link and sync settings]</div>
       </section>
     </div>
+    </AuthGuard>
   )
 }
