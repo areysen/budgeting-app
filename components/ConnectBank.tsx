@@ -26,16 +26,9 @@ export default function ConnectBank() {
           },
         });
         const data = await response.json();
-        console.log("🎯 Received link token response:", data);
 
         if (response.ok && data?.link_token) {
-          console.log(
-            "🎉 Successful response from create-link-token function:",
-            data
-          );
           setLinkToken(data.link_token);
-          console.log("🪪 Fetched link token value is:", data.link_token);
-          console.log("✅ Link token set in state");
         } else {
           console.error("❌ Failed to get valid link_token", data);
         }
@@ -49,10 +42,7 @@ export default function ConnectBank() {
 
   interface PlaidConfig {
     token: string;
-    onSuccess: (
-      public_token: string,
-      metadata: PlaidMetadata
-    ) => Promise<void>;
+    onSuccess: (public_token: string, metadata: PlaidMetadata) => Promise<void>;
   }
 
   interface PlaidMetadata {
@@ -73,10 +63,7 @@ export default function ConnectBank() {
     const config: PlaidConfig = useMemo(
       () => ({
         token,
-        onSuccess: async (
-          public_token: string,
-          metadata: PlaidMetadata
-        ) => {
+        onSuccess: async (public_token: string, metadata: PlaidMetadata) => {
           const user_id = session?.user?.id;
 
           console.log("🌍 Environment:", process.env.NODE_ENV);
@@ -111,8 +98,6 @@ export default function ConnectBank() {
     );
 
     const plaid = usePlaidLink(config);
-
-    console.log("🔍 Debug:", { linkToken: token, plaidReady: plaid.ready });
 
     return (
       <button

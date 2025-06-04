@@ -1,10 +1,11 @@
 import "./globals.css";
-import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TopNav } from "@/components/layout/TopNav";
 import ClientProviders from "@/components/auth/ClientProviders";
+import { Inter } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"] });
+const isCodex = process.env.CI === "true"; // or set a custom flag in Codex
+const inter = isCodex ? { className: "" } : Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "Budgeting App",
