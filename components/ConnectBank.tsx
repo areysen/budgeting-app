@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { usePlaidLink } from "react-plaid-link";
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useSession } from "@supabase/auth-helpers-react";
 
 export default function ConnectBank() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const session = useSession();
-  const supabase = useSupabaseClient();
   const fetchedRef = useRef(false);
 
   // Fetch the link token once when a valid session is available
@@ -19,17 +18,17 @@ export default function ConnectBank() {
     fetchedRef.current = true;
 
     const fetchLinkToken = async () => {
-
       try {
-        const { data, error } = await supabase.functions.invoke(
-          "create-link-token",
-          {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }
-        );
+        const response = await fetch("/api/create-link-token", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const data = await response.json();
         console.log("🎯 Received link token response:", data);
 
-        if (!error && data?.link_token) {
+        if (response.ok && data?.link_token) {
           console.log(
             "🎉 Successful response from create-link-token function:",
             data
@@ -38,7 +37,7 @@ export default function ConnectBank() {
           console.log("🪪 Fetched link token value is:", data.link_token);
           console.log("✅ Link token set in state");
         } else {
-          console.error("❌ Failed to get valid link_token", error);
+          console.error("❌ Failed to get valid link_token", data);
         }
       } catch (err) {
         console.error("🔥 Error fetching link token:", err);
@@ -108,7 +107,7 @@ export default function ConnectBank() {
           }
         },
       }),
-      [token, session]
+      [token]
     );
 
     const plaid = usePlaidLink(config);
