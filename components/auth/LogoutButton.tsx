@@ -1,10 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
+import { useSupabaseClient } from '@supabase/auth-helpers-react'
 
 export function LogoutButton() {
   const router = useRouter()
+  const supabase = useSupabaseClient()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
