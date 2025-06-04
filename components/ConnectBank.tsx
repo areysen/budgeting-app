@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { usePlaidLink } from "react-plaid-link";
-import { useSession } from "@supabase/auth-helpers-react";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 
 export default function ConnectBank() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const session = useSession();
+  const supabase = useSupabaseClient();
 
   // Fetch the link token on mount
   useEffect(() => {
@@ -26,30 +27,15 @@ export default function ConnectBank() {
       }
 
       try {
-        const url = "/api/create-link-token";
-
-        console.log("🌐 Fetching link token from:", url);
-
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          credentials: "include",
-          mode: "cors",
-        });
-
-        let data;
-        try {
-          data = await res.json();
-        } catch (parseErr) {
-          console.error("❌ Failed to parse JSON from response:", parseErr);
-          throw parseErr;
-        }
+        const { data, error } = await supabase.functions.invoke(
+          "create-link-token",
+          {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }
+        );
         console.log("🎯 Received link token response:", data);
 
-        if (res.ok && data.link_token) {
+        if (!error && data?.link_token) {
           console.log(
             "🎉 Successful response from create-link-token function:",
             data
@@ -58,7 +44,7 @@ export default function ConnectBank() {
           console.log("🪪 Fetched link token value is:", data.link_token);
           console.log("✅ Link token set in state");
         } else {
-          console.error("❌ Failed to get valid link_token", data);
+          console.error("❌ Failed to get valid link_token", error);
         }
       } catch (err) {
         console.error("🔥 Error fetching link token:", err);
