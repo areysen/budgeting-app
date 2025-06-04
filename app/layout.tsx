@@ -4,8 +4,9 @@ import { TopNav } from "@/components/layout/TopNav";
 import ClientProviders from "@/components/auth/ClientProviders";
 import { Inter } from "next/font/google";
 
+const interFont = Inter({ subsets: ["latin"] });
 const isCodex = process.env.CI === "true"; // or set a custom flag in Codex
-const inter = isCodex ? { className: "" } : Inter({ subsets: ["latin"] });
+const inter = isCodex ? { className: "" } : interFont;
 
 export const metadata = {
   title: "Budgeting App",
