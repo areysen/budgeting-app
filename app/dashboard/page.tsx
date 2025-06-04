@@ -2,7 +2,6 @@
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import ConnectBank from "@/components/ConnectBank";
 
 export default function DashboardPage() {
   const [vaultCount, setVaultCount] = useState<number | null>(null);
@@ -58,10 +57,6 @@ export default function DashboardPage() {
             [Placeholder for trends and advice]
           </div>
         </section>
-        <div className="p-6">
-          <h2 className="text-xl font-bold mb-4">Bank Connections</h2>
-          <ConnectBank />
-        </div>
       </div>
     </AuthGuard>
   );

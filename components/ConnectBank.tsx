@@ -19,7 +19,7 @@ export default function ConnectBank() {
 
     const fetchLinkToken = async () => {
       try {
-        const response = await fetch("/api/create-link-token", {
+        const response = await fetch("/api/plaid/create-link-token", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -73,7 +73,7 @@ export default function ConnectBank() {
             user_id,
           });
 
-          const response = await fetch("/api/store-public-token", {
+          const response = await fetch("/api/plaid/store-public-token", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -87,7 +87,54 @@ export default function ConnectBank() {
           });
 
           if (response.ok) {
+            const { item_id } = await response.json();
             console.log("🔐 Public token stored successfully");
+
+            if (item_id) {
+              const exchangeRes = await fetch(
+                "/api/plaid/exchange-public-token",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    public_token,
+                    item_id,
+                  }),
+                }
+              );
+
+              if (exchangeRes.ok) {
+                console.log(
+                  "🔄 Successfully exchanged public token for access token"
+                );
+              } else {
+                const exchangeErr = await exchangeRes.json();
+                console.error(
+                  "❌ Failed to exchange public token",
+                  exchangeErr
+                );
+              }
+            }
+
+            await fetch("/api/plaid/accounts", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: session ? `Bearer ${session.access_token}` : "",
+              },
+              body: JSON.stringify({ user_id }),
+            });
+
+            await fetch("/api/plaid/transactions/sync", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: session ? `Bearer ${session.access_token}` : "",
+              },
+              body: JSON.stringify({ user_id }),
+            });
           } else {
             const errorData = await response.json();
             console.error("❌ Failed to store public token", errorData);

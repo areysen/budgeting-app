@@ -25,16 +25,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "public_token required" }, { status: 400 });
     }
 
-    const { error } = await supabase
-      .from("public_tokens")
-      .insert({ user_id: user.id, public_token, institution });
+    const { data, error } = await supabase
+      .from("plaid_items")
+      .insert({
+        user_id: user.id,
+        access_token: null,
+        institution_name: institution,
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
     if (error) {
       console.error("Error storing public token", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, item_id: data.id, plaid_item_id: null });
   } catch (err) {
     console.error("Unexpected error storing public token", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
