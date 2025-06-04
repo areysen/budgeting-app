@@ -90,8 +90,8 @@ export default function ConnectBank() {
             const { item_id } = await response.json();
             console.log("🔐 Public token stored successfully");
 
-            const dbItemId = item_id;
-            if (dbItemId) {
+            let plaidItemId = item_id;
+            if (item_id) {
               const exchangeRes = await fetch(
                 "/api/plaid/exchange-public-token",
                 {
@@ -101,13 +101,14 @@ export default function ConnectBank() {
                   },
                   body: JSON.stringify({
                     public_token,
-                    item_id: dbItemId,
+                    item_id,
                   }),
                 }
               );
 
               if (exchangeRes.ok) {
-                await exchangeRes.json();
+                const exchangeData = await exchangeRes.json();
+                plaidItemId = exchangeData.plaid_item_id || item_id;
                 console.log(
                   "🔄 Successfully exchanged public token for access token"
                 );
@@ -126,7 +127,7 @@ export default function ConnectBank() {
                 "Content-Type": "application/json",
                 Authorization: session ? `Bearer ${session.access_token}` : "",
               },
-              body: JSON.stringify({ plaidItemId: dbItemId }),
+              body: JSON.stringify({ plaidItemId }),
             });
 
             await fetch("/api/plaid/transactions/sync", {
@@ -135,7 +136,7 @@ export default function ConnectBank() {
                 "Content-Type": "application/json",
                 Authorization: session ? `Bearer ${session.access_token}` : "",
               },
-              body: JSON.stringify({ plaidItemId: dbItemId }),
+              body: JSON.stringify({ plaidItemId }),
             });
           } else {
             const errorData = await response.json();

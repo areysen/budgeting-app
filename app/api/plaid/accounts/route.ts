@@ -25,31 +25,19 @@ export async function POST(req: Request) {
   const { plaidItemId } = parsed.data;
 
   const {
-    data: initialItem,
+    data: item,
     error: itemError,
   } = await supabase
     .from('plaid_items')
     .select('access_token')
     .eq('plaid_item_id', plaidItemId)
     .single();
-
-  let item = initialItem;
-
   if (itemError || !item?.access_token) {
-    const { data: legacyItem, error: legacyError } = await supabase
-      .from('plaid_items')
-      .select('access_token')
-      .eq('id', plaidItemId)
-      .single();
-
-    if (legacyError || !legacyItem?.access_token) {
-      console.error('Failed to retrieve access token', itemError || legacyError);
-      return NextResponse.json(
-        { error: 'Missing access token' },
-        { status: 500 }
-      );
-    }
-    item = legacyItem;
+    console.error('Failed to retrieve access token', itemError);
+    return NextResponse.json(
+      { error: 'Missing access token' },
+      { status: 500 }
+    );
   }
 
   const plaid = getPlaidClient();

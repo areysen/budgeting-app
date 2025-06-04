@@ -30,31 +30,19 @@ export async function POST(req: Request) {
   const { plaidItemId } = parsed.data;
 
   const {
-    data: initialItem,
+    data: item,
     error: itemError,
   } = await supabase
     .from('plaid_items')
     .select('access_token')
     .eq('plaid_item_id', plaidItemId)
     .single();
-
-  let item = initialItem;
-
   if (itemError || !item?.access_token) {
-    const { data: legacyItem, error: legacyError } = await supabase
-      .from('plaid_items')
-      .select('access_token')
-      .eq('id', plaidItemId)
-      .single();
-
-    if (legacyError || !legacyItem?.access_token) {
-      console.error('Failed to retrieve access token', itemError || legacyError);
-      return NextResponse.json(
-        { error: 'Missing access token' },
-        { status: 500 }
-      );
-    }
-    item = legacyItem;
+    console.error('Failed to retrieve access token', itemError);
+    return NextResponse.json(
+      { error: 'Missing access token' },
+      { status: 500 }
+    );
   }
 
   const plaid = getPlaidClient();
@@ -72,18 +60,43 @@ export async function POST(req: Request) {
       hasMore = response.has_more;
     }
 
-    const inserts = added.map((txn) => ({
-      plaid_transaction_id: txn.transaction_id,
-      plaid_account_id: txn.account_id,
-      plaid_item_id: plaidItemId,
-      user_id: user.id,
-      name: txn.name,
-      amount: txn.amount,
-      date: txn.date,
-      category: txn.category?.join(" > "),
-      iso_currency_code: txn.iso_currency_code,
-      pending: txn.pending,
-    }));
+    const uniqueAccountIds = Array.from(
+      new Set(added.map((txn) => txn.account_id))
+    );
+    const { data: accountRows, error: accountsError } = await supabase
+      .from('plaid_accounts')
+      .select('id, plaid_account_id')
+      .in('plaid_account_id', uniqueAccountIds);
+
+    if (accountsError) {
+      console.error('Failed to fetch accounts', accountsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch accounts' },
+        { status: 500 }
+      );
+    }
+
+    const accountMap = new Map(
+      (accountRows || []).map((a) => [a.plaid_account_id, a.id])
+    );
+
+    const inserts = added
+      .map((txn) => {
+        const accountId = accountMap.get(txn.account_id);
+        if (!accountId) return null;
+        return {
+          plaid_transaction_id: txn.transaction_id,
+          account_id: accountId,
+          user_id: user.id,
+          name: txn.name,
+          amount: txn.amount,
+          date: txn.date,
+          category: txn.category?.join(' > '),
+          iso_currency_code: txn.iso_currency_code,
+          pending: txn.pending,
+        };
+      })
+      .filter(Boolean);
 
     const { error: insertError } = await supabase
       .from("plaid_transactions")
