@@ -12,8 +12,8 @@ serve(async (req) => {
 
   // Supabase auth
   const supabase = createClient(
-    Deno.env.get("SB_URL")!,
-    Deno.env.get("SERVICE_ROLE_KEY")!,
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { global: { headers: { Authorization: authHeader } } }
   );
 
@@ -22,8 +22,8 @@ serve(async (req) => {
     return new Response("Unauthorized", { status: 401 });
   }
 console.log("🔐 Environment check", {
-  SB_URL: Deno.env.get("SB_URL"),
-  SERVICE_ROLE_KEY: Deno.env.get("SERVICE_ROLE_KEY")?.substring(0, 6), // just partial for safety
+  SUPABASE_URL: Deno.env.get("SUPABASE_URL"),
+  SUPABASE_SERVICE_ROLE_KEY: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.substring(0, 6), // just partial for safety
   PLAID_ENV: Deno.env.get("PLAID_ENV"),
   PLAID_CLIENT_ID: Deno.env.get("PLAID_CLIENT_ID"),
   PLAID_SECRET: Deno.env.get("PLAID_SECRET")?.substring(0, 4),
