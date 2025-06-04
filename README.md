@@ -20,6 +20,36 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Configuration
+
+Copy `.env.example` to `.env` and provide your credentials for Supabase and Plaid:
+
+```bash
+cp .env.example .env
+```
+
+```
+SUPABASE_URL=your-supabase-url
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+PLAID_CLIENT_ID=your-plaid-client-id
+PLAID_SECRET=your-plaid-secret
+PLAID_ENV=sandbox
+```
+
+`PLAID_ENV` supports `sandbox`, `development`, or `production`.
+
+To run the Supabase stack locally, install the Supabase CLI and run:
+
+```bash
+supabase start
+```
+
+For deployment, link your project and deploy the functions:
+
+```bash
+supabase functions deploy create-link-token
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
