@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update Supabase" }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, plaid_item_id: plaidData.item_id });
   } catch (err) {
     console.error("Unexpected error in exchange route:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
