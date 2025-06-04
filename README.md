@@ -32,6 +32,9 @@ PLAID_CLIENT_ID=
 PLAID_SECRET=
 ```
 
+If you see `Failed to create link token` in the browser console, check that your
+Plaid and Supabase credentials are correctly set in `.env`.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Configuration
