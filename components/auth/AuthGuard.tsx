@@ -20,7 +20,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     checkUser()
-  }, [router])
+  }, [router, supabase])
 
   if (loading) {
     return <div className="p-4 text-muted-foreground text-sm">Checking session...</div>
