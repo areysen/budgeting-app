@@ -106,6 +106,7 @@ export default function ConnectBank() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: session ? `Bearer ${session.access_token}` : "",
         },
         body: JSON.stringify({
           public_token,
