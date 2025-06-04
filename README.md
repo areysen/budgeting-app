@@ -61,11 +61,6 @@ To run the Supabase stack locally, install the Supabase CLI and run:
 supabase start
 ```
 
-For deployment, link your project and deploy the functions:
-
-```bash
-supabase functions deploy create-link-token
-```
 
 ## Learn More
 
@@ -83,7 +78,7 @@ The application expects the following Supabase environment variables to be set:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-These variables are used in both the Next.js API routes and the Supabase Edge Functions.
+These variables are used in the Next.js API routes.
 
 ## Deploy on Vercel
 
