@@ -6,7 +6,6 @@ import { z } from "zod";
 
 const requestSchema = z.object({
   plaidItemId: z.string(),
-  accessToken: z.string(),
 });
 
 export async function POST(req: Request) {
@@ -28,26 +27,33 @@ export async function POST(req: Request) {
     );
   }
 
-  const { plaidItemId, accessToken } = parsed.data;
+  const { plaidItemId } = parsed.data;
+
+  const { data: item, error: itemError } = await supabase
+    .from('plaid_items')
+    .select('access_token, last_cursor')
+    .eq('id', plaidItemId)
+    .single();
+
+  if (itemError || !item?.access_token) {
+    console.error('Failed to retrieve access token', itemError);
+    return NextResponse.json(
+      { error: 'Missing access token' },
+      { status: 500 }
+    );
+  }
+
   const plaid = getPlaidClient();
 
   try {
-    const itemResult = await supabase
-      .from("plaid_items")
-      .select("last_cursor")
-      .eq("id", plaidItemId)
-      .single();
-
-    if (itemResult.error) throw itemResult.error;
-
-    const cursor = itemResult.data?.last_cursor ?? null;
+    const cursor = item.last_cursor ?? null;
     let hasMore = true;
-    let added: any[] = [];
+    let added: unknown[] = [];
     let newCursor = cursor;
 
     while (hasMore) {
       const response = await plaid.transactionsSync({
-        access_token: accessToken,
+        access_token: item.access_token,
         cursor: newCursor || undefined,
       });
 

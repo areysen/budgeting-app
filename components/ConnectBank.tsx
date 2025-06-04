@@ -124,7 +124,7 @@ export default function ConnectBank() {
                 "Content-Type": "application/json",
                 Authorization: session ? `Bearer ${session.access_token}` : "",
               },
-              body: JSON.stringify({ user_id }),
+              body: JSON.stringify({ plaidItemId: item_id }),
             });
 
             await fetch("/api/plaid/transactions/sync", {
@@ -133,7 +133,7 @@ export default function ConnectBank() {
                 "Content-Type": "application/json",
                 Authorization: session ? `Bearer ${session.access_token}` : "",
               },
-              body: JSON.stringify({ user_id }),
+              body: JSON.stringify({ plaidItemId: item_id }),
             });
           } else {
             const errorData = await response.json();
