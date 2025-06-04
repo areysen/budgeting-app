@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 
@@ -9,22 +9,13 @@ export default function ConnectBank() {
   const session = useSession();
   const supabase = useSupabaseClient();
 
-  // Fetch the link token on mount
+  // Fetch the link token once a session with an access token is available
   useEffect(() => {
-    console.log("🧪 useEffect hit. Session:", session);
-    if (!session) {
-      console.warn("⚠️ Session is still null, waiting...");
+    if (!session?.access_token || linkToken) {
       return;
     }
 
     const fetchLinkToken = async () => {
-      console.log("🔁 useEffect triggered. Session:", session);
-      if (!session.access_token) {
-        console.warn(
-          "⚠️ Session exists but missing access_token, skipping fetch."
-        );
-        return;
-      }
 
       try {
         const { data, error } = await supabase.functions.invoke(
@@ -52,13 +43,14 @@ export default function ConnectBank() {
     };
 
     fetchLinkToken();
-    console.log("📡 fetchLinkToken() fired inside useEffect for debugging");
-    console.log("🚀 fetchLinkToken() has been invoked");
   }, [session]);
 
   interface PlaidConfig {
     token: string;
-    onSuccess: (public_token: string, metadata: PlaidMetadata) => Promise<void>;
+    onSuccess: (
+      public_token: string,
+      metadata: PlaidMetadata
+    ) => Promise<void>;
   }
 
   interface PlaidMetadata {
@@ -75,40 +67,46 @@ export default function ConnectBank() {
     }>;
   }
 
-  const config: PlaidConfig = {
-    token: linkToken ?? "",
-    onSuccess: async (public_token: string, metadata: PlaidMetadata) => {
-      const user_id = session?.user?.id;
+  const config: PlaidConfig = useMemo(
+    () => ({
+      token: linkToken ?? "",
+      onSuccess: async (
+        public_token: string,
+        metadata: PlaidMetadata
+      ) => {
+        const user_id = session?.user?.id;
 
-      // Debug logs before fetch
-      console.log("🌍 Environment:", process.env.NODE_ENV);
-      console.log("🔗 Calling store-public-token with payload:", {
-        public_token,
-        institution: metadata.institution?.name,
-        user_id,
-      });
-
-      const response = await fetch("/api/store-public-token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: session ? `Bearer ${session.access_token}` : "",
-        },
-        body: JSON.stringify({
+        // Debug logs before fetch
+        console.log("🌍 Environment:", process.env.NODE_ENV);
+        console.log("🔗 Calling store-public-token with payload:", {
           public_token,
           institution: metadata.institution?.name,
           user_id,
-        }),
-      });
+        });
 
-      if (response.ok) {
-        console.log("🔐 Public token stored successfully");
-      } else {
-        const errorData = await response.json();
-        console.error("❌ Failed to store public token", errorData);
-      }
-    },
-  };
+        const response = await fetch("/api/store-public-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: session ? `Bearer ${session.access_token}` : "",
+          },
+          body: JSON.stringify({
+            public_token,
+            institution: metadata.institution?.name,
+            user_id,
+          }),
+        });
+
+        if (response.ok) {
+          console.log("🔐 Public token stored successfully");
+        } else {
+          const errorData = await response.json();
+          console.error("❌ Failed to store public token", errorData);
+        }
+      },
+    }),
+    [linkToken, session]
+  );
 
   const plaid = usePlaidLink(config);
 
