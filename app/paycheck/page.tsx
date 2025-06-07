@@ -6,6 +6,7 @@ import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
 import { getPaycheckRange, getIncomeHitDate } from "@/lib/utils/date/paycheck";
 import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
 import { addDays } from "date-fns";
+import { FixedItem } from "@/types";
 
 type PaycheckDate = {
   label: string;
@@ -30,8 +31,7 @@ export default function PaycheckPage() {
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [fixedItems, setFixedItems] = useState<any[]>([]);
+  const [fixedItems, setFixedItems] = useState<FixedItem[]>([]);
 
   // Removed vault count effect (no longer needed)
 
@@ -312,11 +312,15 @@ export default function PaycheckPage() {
                   const aDate =
                     a.displayDate instanceof Date
                       ? a.displayDate
-                      : new Date(a.displayDate);
+                      : a.displayDate
+                      ? new Date(a.displayDate)
+                      : new Date();
                   const bDate =
                     b.displayDate instanceof Date
                       ? b.displayDate
-                      : new Date(b.displayDate);
+                      : b.displayDate
+                      ? new Date(b.displayDate)
+                      : new Date();
                   return aDate.getTime() - bDate.getTime();
                 })
                 .map((item) => (

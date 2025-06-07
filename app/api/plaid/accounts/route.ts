@@ -118,26 +118,28 @@ export async function POST(req: Request) {
     }
 
     // --- Patch: format accounts for upsert and log results ---
-    const formattedAccounts = accounts.map((acct) => {
-      if (acct.balances.current == null) {
-        throw new Error(
-          `Missing current balance for account ${acct.account_id}`
-        );
-      }
+    const formattedAccounts = (accounts as PlaidAccount[]).map(
+      (acct: PlaidAccount) => {
+        if (acct.balances.current == null) {
+          throw new Error(
+            `Missing current balance for account ${acct.account_id}`
+          );
+        }
 
-      return {
-        user_id: plaidItemUser.user_id,
-        plaid_account_id: acct.account_id,
-        name: acct.name,
-        type: acct.type,
-        subtype: acct.subtype,
-        mask: acct.mask,
-        available_balance: acct.balances.available,
-        current_balance: acct.balances.current,
-        iso_currency_code: acct.balances.iso_currency_code,
-        plaid_item_id: plaidItemId,
-      };
-    });
+        return {
+          user_id: plaidItemUser.user_id,
+          plaid_account_id: acct.account_id,
+          name: acct.name,
+          type: acct.type,
+          subtype: acct.subtype,
+          mask: acct.mask,
+          available_balance: acct.balances.available,
+          current_balance: acct.balances.current,
+          iso_currency_code: acct.balances.iso_currency_code,
+          plaid_item_id: plaidItemId,
+        };
+      }
+    );
 
     console.log("🔧 Attempting to upsert formatted accounts:");
     console.dir(formattedAccounts, { depth: 3 });

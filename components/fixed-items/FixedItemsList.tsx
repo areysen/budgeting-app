@@ -64,27 +64,33 @@ export function FixedItemsList({
 
       if (!error && data) {
         setItems(
-          data.map((item: any) => ({
-            ...item,
-            vault_id:
-              item.vaults &&
-              typeof item.vaults === "object" &&
-              "id" in item.vaults
-                ? (item.vaults as { id: string }).id
-                : null,
-            vaults:
-              item.vaults &&
-              typeof item.vaults === "object" &&
-              "id" in item.vaults
-                ? (item.vaults as { id: string; name: string })
-                : null,
-            categories:
-              item.categories &&
-              typeof item.categories === "object" &&
-              "id" in item.categories
-                ? (item.categories as { id: string; name: string })
-                : null,
-          })) as FixedItem[]
+          data.map((item) => {
+            const { vaults, categories, ...rest } = item;
+            return {
+              ...rest,
+              vault_id:
+                vaults && typeof vaults === "object" && "id" in vaults
+                  ? vaults.id
+                  : null,
+              vaults:
+                vaults && typeof vaults === "object" && "id" in vaults
+                  ? "id" in vaults && "name" in vaults
+                    ? { id: vaults.id as string, name: vaults.name as string }
+                    : null
+                  : null,
+              categories:
+                categories &&
+                typeof categories === "object" &&
+                "id" in categories
+                  ? "id" in categories && "name" in categories
+                    ? {
+                        id: String(categories.id),
+                        name: String(categories.name),
+                      }
+                    : null
+                  : null,
+            } as FixedItem;
+          })
         );
       }
       setLoading(false);
