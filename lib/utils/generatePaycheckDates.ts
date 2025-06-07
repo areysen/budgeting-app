@@ -26,7 +26,7 @@ export function generatePaycheckDates(start: Date, end: Date): PaycheckDate[] {
   const isHoliday = (d: Date) => holidayMap.has(d.toDateString());
 
   const adjustDate = (d: Date): Date => {
-    let adjusted = new Date(d);
+    const adjusted = new Date(d);
     const day = adjusted.getDay();
 
     // If Monday, Saturday, or Sunday → back to Friday first

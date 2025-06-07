@@ -44,7 +44,9 @@ DialogContent.displayName = "DialogContent";
 const DialogHeader = ({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />;
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("", className)} {...props} />
+);
 DialogHeader.displayName = "DialogHeader";
 
 const DialogTitle = React.forwardRef<

@@ -14,29 +14,19 @@ type PaycheckDate = {
 };
 
 export default function PaycheckPage() {
-  const [vaultCount, setVaultCount] = useState<number | null>(null);
+  // Removed unused vaultCount
   const [paycheckDates, setPaycheckDates] = useState<PaycheckDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<PaycheckDate | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [fixedItems, setFixedItems] = useState<any[]>([]);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const userId = data?.user?.id;
-      if (userId) {
-        supabase
-          .from("vaults")
-          .select("*")
-          .eq("user_id", userId)
-          .then(({ data }) => {
-            setVaultCount(data?.length ?? 0);
-          });
-      }
-    });
-  }, []);
+  // Removed vault count effect (no longer needed)
+
   // Helper to get due date for a fixed item
   const getDueDateForItem = (
     item: any,
@@ -75,7 +65,9 @@ export default function PaycheckPage() {
     }
   }, []);
 
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSelectChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ): void => {
     const adjustedDate = e.target.value;
     const found =
       paycheckDates.find((pd) => pd.adjustedDate === adjustedDate) ?? null;
@@ -93,11 +85,6 @@ export default function PaycheckPage() {
     if (!selectedDate) return { start: null, end: null };
     return getPaycheckRange(selectedDate, nextPaycheck);
   }, [selectedDate, nextPaycheck]);
-
-  const periodLabel =
-    start && end
-      ? formatDateRange(start.toISOString(), end.toISOString())
-      : null;
 
   // State for income total
   const [incomeTotal, setIncomeTotal] = useState<number>(0);
@@ -143,7 +130,7 @@ export default function PaycheckPage() {
         setIncomeTotal(total);
         setIncomeSources(includedIncome);
       });
-  }, [selectedDate, start, end]);
+  }, [selectedDate, start, end, nextPaycheck]);
 
   useEffect(() => {
     if (!selectedDate || !start || !end) return;
@@ -181,7 +168,7 @@ export default function PaycheckPage() {
 
         setFixedItems(items);
       });
-  }, [selectedDate, start, end]);
+  }, [selectedDate, start, end, nextPaycheck]);
 
   return (
     <AuthGuard>

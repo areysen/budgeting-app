@@ -27,6 +27,16 @@ type Category = {
   sort_order: number | null;
 };
 
+interface SortableCategoryItemProps {
+  cat: Category;
+  editingId: string | null;
+  editingName: string;
+  setEditingId: (id: string | null) => void;
+  setEditingName: (name: string) => void;
+  handleSaveEdit: (id: string) => void;
+  handleDelete: (id: string) => void;
+}
+
 function SortableCategoryItem({
   cat,
   editingId,
@@ -35,7 +45,7 @@ function SortableCategoryItem({
   setEditingName,
   handleSaveEdit,
   handleDelete,
-}: any) {
+}: SortableCategoryItemProps) {
   const {
     attributes,
     listeners,

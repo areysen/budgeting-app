@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPlaidClient } from "@/lib/plaid";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
 import { z } from "zod";
 import util from "util";
 
@@ -10,7 +9,6 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies();
   const supabase = createServerSupabaseClient();
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData?.user) {
@@ -87,7 +85,7 @@ export async function POST(req: Request) {
     console.log(`📦 ${accounts.length} account(s) retrieved`);
 
     // Retrieve the most recent plaid_item_id for the user before upserting accounts
-    const { data: plaidItems, error: plaidItemsError } = await supabase
+    const { data: plaidItems } = await supabase
       .from("plaid_items")
       .select("plaid_item_id, created_at")
       .eq("user_id", user?.id)
@@ -159,13 +157,14 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
     // --- End Patch ---
-  } catch (error: any) {
-    if (error?.response?.data) {
+  } catch (error: unknown) {
+    const typedError = error as { response?: { data?: any }; message: string };
+    if (typedError?.response?.data) {
       console.log("🧠 Plaid API error response data:");
-      console.dir(error.response.data, { depth: null });
+      console.dir(typedError.response.data, { depth: null });
     }
-    console.error("❌ Plaid API error fetching accounts:", error.message);
-    console.error(util.inspect(error, { depth: 5, colors: true }));
+    console.error("❌ Plaid API error fetching accounts:", typedError.message);
+    console.error(util.inspect(typedError, { depth: 5, colors: true }));
     return NextResponse.json(
       { error: "Failed to fetch accounts from Plaid" },
       { status: 500 }

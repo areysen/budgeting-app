@@ -1,4 +1,4 @@
-import { addDays, subDays, parseISO, isWithinInterval, format } from "date-fns";
+import { addDays, subDays, parseISO, isWithinInterval } from "date-fns";
 import type { PaycheckDate } from "../generatePaycheckDates";
 
 // Return the end of a paycheck period
@@ -11,7 +11,12 @@ export function getPaycheckRange(current: PaycheckDate, next?: PaycheckDate) {
 }
 
 export function getIncomeHitDate(
-  source: any,
+  source: {
+    due_days?: string[];
+    weekly_day?: string;
+    frequency?: string;
+    start_date?: string;
+  },
   periodStart: Date,
   periodEnd: Date
 ): Date | null {
@@ -61,7 +66,7 @@ export function getIncomeHitDate(
       ? new Date(source.start_date)
       : periodStart;
 
-    let temp = new Date(startRef);
+    const temp = new Date(startRef);
     // Move to the first matching weekday on or after startRef
     while (temp.getDay() !== targetDay) {
       temp.setDate(temp.getDate() + 1);

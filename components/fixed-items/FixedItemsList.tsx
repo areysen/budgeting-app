@@ -64,17 +64,25 @@ export function FixedItemsList({
 
       if (!error && data) {
         setItems(
-          data.map((item: any) => ({
+          data.map((item: Record<string, any>) => ({
             ...item,
             vault_id:
-              item.vaults && !Array.isArray(item.vaults)
-                ? item.vaults.id
+              item.vaults &&
+              typeof item.vaults === "object" &&
+              "id" in item.vaults
+                ? (item.vaults as { id: string }).id
                 : null,
             vaults:
-              item.vaults && !Array.isArray(item.vaults) ? item.vaults : null,
+              item.vaults &&
+              typeof item.vaults === "object" &&
+              "id" in item.vaults
+                ? (item.vaults as { id: string; name: string })
+                : null,
             categories:
-              item.categories && !Array.isArray(item.categories)
-                ? item.categories
+              item.categories &&
+              typeof item.categories === "object" &&
+              "id" in item.categories
+                ? (item.categories as { id: string; name: string })
                 : null,
           })) as FixedItem[]
         );
