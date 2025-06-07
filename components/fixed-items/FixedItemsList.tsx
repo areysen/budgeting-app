@@ -64,7 +64,7 @@ export function FixedItemsList({
 
       if (!error && data) {
         setItems(
-          data.map((item: Record<string, any>) => ({
+          data.map((item: any) => ({
             ...item,
             vault_id:
               item.vaults &&

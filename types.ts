@@ -38,3 +38,16 @@ export type FixedItemFormProps = {
   onClose: () => void;
   onSave: () => void;
 };
+
+export type PlaidAccount = {
+  account_id: string;
+  name: string;
+  type: string;
+  subtype: string | null;
+  mask: string | null;
+  balances: {
+    available: number | null;
+    current: number;
+    iso_currency_code: string | null;
+  };
+};

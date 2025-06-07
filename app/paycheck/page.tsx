@@ -18,8 +18,16 @@ export default function PaycheckPage() {
   const [paycheckDates, setPaycheckDates] = useState<PaycheckDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<PaycheckDate | null>(null);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [incomeSources, setIncomeSources] = useState<any[]>([]);
+  type IncomeSource = {
+    id: string;
+    name: string;
+    amount: number;
+    start_date: string | null;
+    frequency?: string;
+    due_days?: number[];
+  };
+
+  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -232,7 +240,15 @@ export default function PaycheckPage() {
                       if (source.name === "Paycheck") {
                         return formatDisplayDate(selectedDate.adjustedDate);
                       }
-                      const hit = getIncomeHitDate(source, start, end);
+                      const hit = getIncomeHitDate(
+                        {
+                          ...source,
+                          due_days: source.due_days?.map(String),
+                          start_date: source.start_date ?? undefined,
+                        },
+                        start,
+                        end
+                      );
                       return hit ? formatDisplayDate(hit.toISOString()) : "";
                     })();
                     return (
