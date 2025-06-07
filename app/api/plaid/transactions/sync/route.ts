@@ -9,7 +9,8 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const supabase = createServerSupabaseClient(await cookies());
+  const cookieStore = await cookies();
+  const supabase = createServerSupabaseClient(() => cookieStore);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -30,15 +31,15 @@ export async function POST(req: Request) {
   const { plaidItemId } = parsed.data;
 
   const { data: item, error: itemError } = await supabase
-    .from('plaid_items')
-    .select('access_token')
-    .eq('plaid_item_id', plaidItemId)
+    .from("plaid_items")
+    .select("access_token")
+    .eq("plaid_item_id", plaidItemId)
     .single();
 
   if (itemError || !item?.access_token) {
-    console.error('Failed to retrieve access token', itemError);
+    console.error("Failed to retrieve access token", itemError);
     return NextResponse.json(
-      { error: 'Missing access token' },
+      { error: "Missing access token" },
       { status: 500 }
     );
   }
@@ -53,8 +54,9 @@ export async function POST(req: Request) {
       const response = await plaid.transactionsSync({
         access_token: item.access_token,
       });
-
-      added = [...added, ...response.added];
+      if (response.added) {
+        added = [...added, ...response.added];
+      }
       hasMore = response.has_more;
     }
 

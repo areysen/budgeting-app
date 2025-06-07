@@ -19,10 +19,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="bg-background text-foreground">
       <body
         className={cn(
-          "min-h-screen bg-background font-sans antialiased",
+          "min-h-screen font-sans antialiased bg-background ring-offset-background",
           inter.className
         )}
       >
@@ -30,7 +30,7 @@ export default function RootLayout({
           <div className="min-h-screen flex flex-col">
             <TopNav />
             <main className="flex-1">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8">
                 {children}
               </div>
             </main>

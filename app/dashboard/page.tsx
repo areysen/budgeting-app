@@ -24,10 +24,10 @@ export default function DashboardPage() {
   return (
     <AuthGuard>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
 
-        <section className="bg-muted p-4 rounded-md">
-          <h2 className="text-lg font-semibold mb-2">
+        <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
+          <h2 className="text-lg font-semibold text-foreground mb-2">
             Current Paycheck Period
           </h2>
           <div className="text-sm text-muted-foreground">
@@ -35,15 +35,19 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="bg-muted p-4 rounded-md">
-          <h2 className="text-lg font-semibold mb-2">Recent Activity</h2>
+        <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Recent Activity
+          </h2>
           <div className="text-sm text-muted-foreground">
             [Placeholder for recent expenses and transfers]
           </div>
         </section>
 
-        <section className="bg-muted p-4 rounded-md">
-          <h2 className="text-lg font-semibold mb-2">Vault Overview</h2>
+        <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Vault Overview
+          </h2>
           <div className="text-sm text-muted-foreground">
             {vaultCount === null
               ? "Loading..."
@@ -51,8 +55,10 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="bg-muted p-4 rounded-md">
-          <h2 className="text-lg font-semibold mb-2">Insights</h2>
+        <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Insights
+          </h2>
           <div className="text-sm text-muted-foreground">
             [Placeholder for trends and advice]
           </div>

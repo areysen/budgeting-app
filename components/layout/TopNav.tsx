@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { cn } from "@/lib/utils";
 
 export function TopNav() {
   const pathname = usePathname();
@@ -11,43 +12,65 @@ export function TopNav() {
   if (pathname === "/login") return null;
 
   return (
-    <header className="bg-white shadow dark:bg-gray-900">
-      <div className="mx-auto max-w-7xl px-4 py-3 flex justify-between items-center">
+    <header className="bg-background/80 backdrop-blur-sm sticky top-0 z-40 border-b border-border ">
+      <div className="mx-auto max-w-7xl px-4 py-6 flex justify-between items-center">
         <div className="flex items-center space-x-6">
-          <Link
-            href="/"
-            className="text-xl font-bold text-gray-900 dark:text-white"
-          >
+          <Link href="/" className="text-xl font-bold text-foreground">
             Budgeting App
           </Link>
           <nav className="space-x-4">
             <Link
               href="/dashboard"
-              className="text-gray-600 dark:text-gray-300 hover:underline"
+              className={cn(
+                "px-2 py-1 rounded-md transition-colors",
+                pathname === "/dashboard"
+                  ? "text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               Dashboard
             </Link>
             <Link
               href="/paycheck"
-              className="text-gray-600 dark:text-gray-300 hover:underline"
+              className={cn(
+                "px-2 py-1 rounded-md transition-colors",
+                pathname === "/paycheck"
+                  ? "text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               Paycheck
             </Link>
             <Link
               href="/vaults"
-              className="text-gray-600 dark:text-gray-300 hover:underline"
+              className={cn(
+                "px-2 py-1 rounded-md transition-colors",
+                pathname === "/vaults"
+                  ? "text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               Vaults
             </Link>
             <Link
               href="/transactions"
-              className="text-gray-600 dark:text-gray-300 hover:underline"
+              className={cn(
+                "px-2 py-1 rounded-md transition-colors",
+                pathname === "/transactions"
+                  ? "text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               Transactions
             </Link>
             <Link
               href="/settings"
-              className="text-gray-600 dark:text-gray-300 hover:underline"
+              className={cn(
+                "px-2 py-1 rounded-md transition-colors",
+                pathname === "/settings"
+                  ? "text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
               Settings
             </Link>

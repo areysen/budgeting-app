@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         institution_name: institution,
         status: "pending",
       })
-      .select("id")
+      .select("id, plaid_item_id")
       .single();
 
     if (error) {
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, item_id: data.id, plaid_item_id: null });
+    return NextResponse.json({ success: true, item_id: data.id, plaid_item_id: data.plaid_item_id });
   } catch (err) {
     console.error("Unexpected error storing public token", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
