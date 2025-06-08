@@ -60,7 +60,7 @@ export async function POST(req: Request) {
           ...added,
           ...response.data.added.map((txn) => ({
             ...txn,
-            category: txn.category ?? undefined,
+            category: Array.isArray(txn.category) ? txn.category : undefined,
           })),
         ];
       }
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       name: txn.name,
       amount: txn.amount,
       date: txn.date,
-      category: txn.category?.join(" > "),
+      category: txn.category,
       iso_currency_code: txn.iso_currency_code,
       pending: txn.pending,
     }));
