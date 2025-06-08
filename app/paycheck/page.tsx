@@ -1,6 +1,6 @@
 // @ts-nocheck
 "use client";
-import { normalizeFixedItem } from "@/utils/fixedItem";
+import { normalizeFixedItem } from "@/lib/utils/fixedItem";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
