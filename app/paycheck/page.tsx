@@ -5,7 +5,10 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
-import { getPaycheckRange, getIncomeHitDate } from "@/lib/utils/date/paycheck";
+import {
+  getPaycheckRange,
+  getIncomeHitDate,
+} from "@/lib/utils/date/paycheck";
 import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
 import { addDays } from "date-fns";
 import { FixedItem } from "@/types";
@@ -52,7 +55,7 @@ export default function PaycheckPage() {
       return new Date(selectedDate.adjustedDate);
     }
     if (start && end) {
-      // getIncomeHitDate now returns a Date object or null.
+      // getIncomeHitDate returns a Date object or null.
       return getIncomeHitDate(
         {
           // Removed 'name' as it is not part of the expected type
@@ -312,36 +315,31 @@ export default function PaycheckPage() {
             <ul className="ml-4 mt-2 list-disc text-sm">
               {[...fixedItems]
                 .map((item) => {
-                  // Calculate hitDate once
-                  const hitDate =
-                    item.frequency?.toLowerCase() === "per paycheck"
-                      ? new Date(`${selectedDate.adjustedDate}T00:00:00`)
-                      : getDueDateForItem(item, selectedDate, start, end);
+                  const isPerPaycheck =
+                    item.frequency?.toLowerCase() === "per paycheck";
 
-                  const displayDate =
-                    item.frequency?.toLowerCase() === "per paycheck"
-                      ? new Date(`${selectedDate.adjustedDate}T00:00:00`)
-                      : getDueDateForItem(item, selectedDate, start, end);
+                  const computedDate = isPerPaycheck
+                    ? new Date(`${selectedDate.adjustedDate}T00:00:00`)
+                    : getDueDateForItem(item, selectedDate, start, end);
 
-                  // Debug frequency logic with detailed info
                   console.log("🧪 Checking frequency logic:", {
                     name: item.name,
                     frequency: item.frequency,
                     start_date: item.start_date,
                     due_days: item.due_days,
-                    resultHitDate: hitDate,
+                    resultHitDate: computedDate,
                   });
 
                   console.log(
                     "📅 Final displayDate:",
                     item.name,
-                    displayDate?.toISOString?.()
+                    computedDate?.toISOString?.()
                   );
 
                   return {
                     ...item,
-                    dueDate: hitDate,
-                    displayDate: displayDate,
+                    dueDate: computedDate,
+                    displayDate: computedDate,
                   };
                 })
                 .sort((a, b) => {
