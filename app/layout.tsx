@@ -1,7 +1,6 @@
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TopNav } from "@/components/layout/TopNav";
-import ClientProviders from "@/components/auth/ClientProviders";
 import { Inter } from "next/font/google";
 
 const interFont = Inter({ subsets: ["latin"] });
@@ -26,16 +25,14 @@ export default function RootLayout({
           inter.className
         )}
       >
-        <ClientProviders>
-          <div className="min-h-screen flex flex-col">
-            <TopNav />
-            <main className="flex-1">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8">
-                {children}
-              </div>
-            </main>
-          </div>
-        </ClientProviders>
+        <div className="min-h-screen flex flex-col">
+          <TopNav />
+          <main className="flex-1">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8">
+              {children}
+            </div>
+          </main>
+        </div>
       </body>
     </html>
   );
