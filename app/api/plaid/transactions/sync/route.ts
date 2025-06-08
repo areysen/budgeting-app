@@ -11,7 +11,7 @@ const requestSchema = z.object({
 
 export async function POST(req: Request) {
   const cookieStore = await cookies();
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
