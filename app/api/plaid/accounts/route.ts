@@ -10,7 +10,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData?.user) {
     console.error("User fetch error", userError);
