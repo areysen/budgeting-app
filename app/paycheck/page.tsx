@@ -37,7 +37,7 @@ export default function PaycheckPage() {
 
   // Helper to get due date for a fixed item
   const getDueDateForItem = (
-    item: any,
+    item: FixedItem,
     selectedDate: PaycheckDate | null,
     start: Date | null,
     end: Date | null
@@ -48,7 +48,17 @@ export default function PaycheckPage() {
     }
     if (start && end) {
       // getIncomeHitDate now returns a Date object or null.
-      return getIncomeHitDate(item, start, end);
+      return getIncomeHitDate(
+        {
+          // Removed 'name' as it is not part of the expected type
+          // Removed 'amount' as it is not part of the expected type
+          start_date: item.start_date ?? undefined,
+          frequency: item.frequency,
+          due_days: item.due_days?.map(String),
+        },
+        start,
+        end
+      );
     }
     return null;
   };

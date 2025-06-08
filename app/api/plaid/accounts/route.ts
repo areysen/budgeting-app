@@ -169,7 +169,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
     // --- End Patch ---
   } catch (error: unknown) {
-    const typedError = error as { response?: { data?: any }; message: string };
+    const typedError = error as {
+      response?: { data?: unknown };
+      message: string;
+    };
     if (typedError?.response?.data) {
       console.log("🧠 Plaid API error response data:");
       console.dir(typedError.response.data, { depth: null });
