@@ -9,10 +9,27 @@ export async function GET(request: NextRequest) {
   const redirectTo = url.searchParams.get("next") ?? "/dashboard";
 
   if (code) {
+    const cookieStore = await cookies();
     const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies }
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options) {
+            try {
+              cookieStore.set({ name, value, ...options });
+            } catch (_) {}
+          },
+          remove(name: string, options) {
+            try {
+              cookieStore.set({ name, value: "", ...options });
+            } catch (_) {}
+          },
+        },
+      }
     );
     await supabase.auth.exchangeCodeForSession(code);
   }
