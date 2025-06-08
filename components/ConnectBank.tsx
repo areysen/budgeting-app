@@ -1,17 +1,34 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+
+const createClientComponentClient = () =>
+  createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
-import { useSession } from "@supabase/auth-helpers-react";
 
 export default function ConnectBank() {
+  const supabase = createClientComponentClient();
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [linkToken, setLinkToken] = useState<string | null>(null);
-  const session = useSession();
   const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (data?.session?.access_token) {
+        setAccessToken(data.session.access_token);
+      }
+    };
+    getSession();
+  }, []);
 
   // Fetch the link token once when a valid session is available
   useEffect(() => {
-    if (!session?.access_token || fetchedRef.current || linkToken) {
+    if (!accessToken || fetchedRef.current || linkToken) {
       return;
     }
 
@@ -22,7 +39,7 @@ export default function ConnectBank() {
         const response = await fetch("/api/plaid/create-link-token", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         });
         const data = await response.json();
@@ -38,7 +55,7 @@ export default function ConnectBank() {
     };
 
     fetchLinkToken();
-  }, [session, linkToken]);
+  }, [accessToken, linkToken]);
 
   interface PlaidConfig {
     token: string;
@@ -64,7 +81,10 @@ export default function ConnectBank() {
       () => ({
         token,
         onSuccess: async (public_token: string, metadata: PlaidMetadata) => {
-          const user_id = session?.user?.id;
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          const user_id = user?.id;
 
           console.log("🌍 Environment:", process.env.NODE_ENV);
           console.log("🔗 Calling store-public-token with payload:", {
@@ -77,7 +97,7 @@ export default function ConnectBank() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: session ? `Bearer ${session.access_token}` : "",
+              Authorization: accessToken ? `Bearer ${accessToken}` : "",
             },
             body: JSON.stringify({
               public_token,
@@ -125,7 +145,7 @@ export default function ConnectBank() {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: session ? `Bearer ${session.access_token}` : "",
+                Authorization: accessToken ? `Bearer ${accessToken}` : "",
               },
               body: JSON.stringify({ plaidItemId }),
             });
@@ -134,7 +154,7 @@ export default function ConnectBank() {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: session ? `Bearer ${session.access_token}` : "",
+                Authorization: accessToken ? `Bearer ${accessToken}` : "",
               },
               body: JSON.stringify({ plaidItemId }),
             });
