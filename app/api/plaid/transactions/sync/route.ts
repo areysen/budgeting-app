@@ -3,6 +3,7 @@ import { getPlaidClient } from "@/lib/plaid";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { PlaidTransaction } from "@/types";
 
 const requestSchema = z.object({
   plaidItemId: z.string(),
@@ -10,7 +11,7 @@ const requestSchema = z.object({
 
 export async function POST(req: Request) {
   const cookieStore = await cookies();
-  const supabase = createServerSupabaseClient(() => cookieStore);
+  const supabase = createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -48,16 +49,22 @@ export async function POST(req: Request) {
 
   try {
     let hasMore = true;
-    let added: unknown[] = [];
+    let added: PlaidTransaction[] = [];
 
     while (hasMore) {
       const response = await plaid.transactionsSync({
         access_token: item.access_token,
       });
-      if (response.added) {
-        added = [...added, ...response.added];
+      if (response.data.added) {
+        added = [
+          ...added,
+          ...response.data.added.map((txn) => ({
+            ...txn,
+            category: txn.category ?? undefined,
+          })),
+        ];
       }
-      hasMore = response.has_more;
+      hasMore = response.data.has_more;
     }
 
     const inserts = added.map((txn) => ({

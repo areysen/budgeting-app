@@ -51,3 +51,14 @@ export type PlaidAccount = {
     iso_currency_code: string | null;
   };
 };
+
+export interface PlaidTransaction {
+  transaction_id: string;
+  account_id: string;
+  name: string;
+  amount: number;
+  date: string;
+  category?: string[];
+  iso_currency_code: string | null;
+  pending: boolean;
+}
