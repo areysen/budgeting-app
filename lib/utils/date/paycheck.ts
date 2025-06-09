@@ -1,5 +1,22 @@
-import { addDays, subDays, parseISO, isWithinInterval } from "date-fns";
+import {
+  addDays,
+  subDays,
+  parseISO,
+  isWithinInterval,
+  isSameDay,
+  setDate,
+  setMonth,
+  setYear,
+} from "date-fns";
 import type { PaycheckDate } from "../generatePaycheckDates";
+
+interface FrequencySource {
+  due_days?: string[];
+  weekly_day?: string;
+  frequency?: string;
+  start_date?: string;
+  name?: string;
+}
 
 // Return the end of a paycheck period
 export function getPaycheckRange(current: PaycheckDate, next?: PaycheckDate) {
@@ -10,115 +27,159 @@ export function getPaycheckRange(current: PaycheckDate, next?: PaycheckDate) {
   return { start, end };
 }
 
-export function getIncomeHitDate(
-  source: {
-    due_days?: string[];
-    weekly_day?: string;
-    frequency?: string;
-    start_date?: string;
-  },
+function getMonthlyHitDates(
+  source: FrequencySource,
   periodStart: Date,
   periodEnd: Date
-): Date | null {
+): Date[] {
+  const dates: Date[] = [];
+  for (const dayStr of source.due_days ?? []) {
+    let d: Date | null = null;
+    if (dayStr === "EOM") {
+      d = new Date(periodEnd.getFullYear(), periodEnd.getMonth() + 1, 0);
+    } else if (dayStr.includes("/")) {
+      const [monthStr, dayPart] = dayStr.split("/");
+      const month = parseInt(monthStr) - 1;
+      const day = parseInt(dayPart);
+      d = new Date(periodStart.getFullYear(), month, day);
+    } else {
+      const day = parseInt(dayStr);
+      d = new Date(periodStart.getFullYear(), periodStart.getMonth(), day);
+    }
+    if (d && isWithinInterval(d, { start: periodStart, end: periodEnd })) {
+      dates.push(d);
+    }
+  }
+  return dates;
+}
+
+function getWeeklyHitDates(
+  source: FrequencySource,
+  periodStart: Date,
+  periodEnd: Date
+): Date[] {
+  const dates: Date[] = [];
+  const weekdayMap = {
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
+  };
+  const targetDay = weekdayMap[source.weekly_day as keyof typeof weekdayMap];
+  const isBiweekly = source.frequency?.toLowerCase() === "biweekly";
+  const refStart = source.start_date
+    ? new Date(source.start_date)
+    : periodStart;
+  refStart.setHours(12, 0, 0, 0);
+  const refDay = refStart.getDay();
+  const offset =
+    refDay <= targetDay ? targetDay - refDay : 7 - (refDay - targetDay);
+  const firstHit = addDays(refStart, offset);
+
+  let candidate = new Date(periodStart);
+  candidate.setHours(12, 0, 0, 0);
+  while (candidate <= periodEnd) {
+    if (candidate.getDay() === targetDay) {
+      const match = !isBiweekly
+        ? true
+        : isSameDay(candidate, firstHit) ||
+          ((candidate.getTime() - firstHit.getTime()) / (1000 * 60 * 60 * 24)) %
+            14 ===
+            0;
+      if (match && candidate >= periodStart && candidate <= periodEnd) {
+        dates.push(new Date(candidate));
+      }
+    }
+    candidate.setDate(candidate.getDate() + 1);
+  }
+  return dates;
+}
+
+function getQuarterlyHitDates(
+  source: FrequencySource,
+  periodStart: Date,
+  periodEnd: Date
+): Date[] {
+  const dates: Date[] = [];
+  if (!source.start_date || !source.due_days?.length) return dates;
+
+  const baseDate = new Date(source.start_date);
+  baseDate.setHours(12, 0, 0, 0);
+  const baseDay = baseDate.getDate();
+  const baseMonth = baseDate.getMonth();
+  const baseYear = baseDate.getFullYear();
+
+  for (let offset = 0; offset < 12; offset += 3) {
+    for (const dayStr of source.due_days) {
+      const day = parseInt(dayStr);
+      if (isNaN(day)) continue;
+      // Create target date with fixed noon time and avoid mutation artifacts
+      const target = new Date(baseYear, baseMonth + offset, day, 12);
+      if (isWithinInterval(target, { start: periodStart, end: periodEnd })) {
+        dates.push(new Date(target));
+      }
+    }
+  }
+
+  return dates;
+}
+
+export function getIncomeHitDate(
+  source: FrequencySource,
+  periodStart: Date,
+  periodEnd: Date
+): Date[] {
+  source.frequency = source.frequency?.trim().toLowerCase();
   const dates: Date[] = [];
 
   if (source.due_days?.length) {
-    for (const dayStr of source.due_days) {
-      let d: Date | null = null;
-      if (dayStr === "EOM") {
-        d = new Date(periodEnd.getFullYear(), periodEnd.getMonth() + 1, 0);
-        if (d && isWithinInterval(d, { start: periodStart, end: periodEnd })) {
-          dates.push(d);
-        }
-      } else if (dayStr.includes("/")) {
-        const [monthStr, dayStrPart] = dayStr.split("/");
-        const month = parseInt(monthStr) - 1; // JS months are 0-indexed
-        const day = parseInt(dayStrPart);
-        const candidate = new Date(periodStart.getFullYear(), month, day);
-        if (
-          isWithinInterval(candidate, { start: periodStart, end: periodEnd })
-        ) {
-          dates.push(candidate);
-        }
-      } else {
-        const day = parseInt(dayStr);
-        d = new Date(periodStart.getFullYear(), periodStart.getMonth(), day);
-        if (d && isWithinInterval(d, { start: periodStart, end: periodEnd })) {
-          dates.push(d);
-        }
-      }
-    }
+    dates.push(...getMonthlyHitDates(source, periodStart, periodEnd));
   }
 
-  if (source.weekly_day) {
-    const weekdayMap = {
-      Sunday: 0,
-      Monday: 1,
-      Tuesday: 2,
-      Wednesday: 3,
-      Thursday: 4,
-      Friday: 5,
-      Saturday: 6,
-    };
-    const targetDay = weekdayMap[source.weekly_day as keyof typeof weekdayMap];
-    const isBiweekly = source.frequency?.toLowerCase() === "biweekly";
-    const startRef = source.start_date
-      ? new Date(source.start_date)
-      : periodStart;
-
-    const temp = new Date(startRef);
-    // Move to the first matching weekday on or after startRef
-    while (temp.getDay() !== targetDay) {
-      temp.setDate(temp.getDate() + 1);
-    }
-
-    while (temp <= periodEnd) {
-      if (temp >= periodStart && temp.getDay() === targetDay) {
-        dates.push(new Date(temp));
-      }
-      temp.setDate(temp.getDate() + (isBiweekly ? 14 : 7));
-    }
-  }
-
-  // Handle quarterly logic (e.g., Pestie)
   if (
-    source.frequency?.toLowerCase() === "quarterly" &&
+    source.weekly_day &&
+    (source.frequency === "weekly" || source.frequency === "biweekly")
+  ) {
+    dates.push(...getWeeklyHitDates(source, periodStart, periodEnd));
+  }
+
+  if (
+    source.frequency === "quarterly" &&
     source.due_days?.length &&
     source.start_date
   ) {
-    const startDate = new Date(source.start_date);
-    console.log("🔍 Quarterly Start Date:", startDate.toISOString());
-    console.log("🔍 Period Start:", periodStart.toISOString());
-    console.log("🔍 Period End:", periodEnd.toISOString());
-
-    for (let i = 0; i < source.due_days.length; i++) {
-      const baseMonth = startDate.getMonth();
-      const baseYear = startDate.getFullYear();
-
-      const dueMonth = baseMonth + i * 3;
-      const dueYear = baseYear + Math.floor(dueMonth / 12);
-      const monthIndex = dueMonth % 12;
-
-      const dueDay = parseInt(source.due_days[i]);
-      const dueDate = new Date(dueYear, monthIndex, dueDay);
-      dueDate.setHours(0, 0, 0, 0);
-
-      console.log(
-        `➡️  Q${
-          i + 1
-        } | Target Day: ${dueDay} | Due Date: ${dueDate.toISOString()}`
-      );
-
-      if (isWithinInterval(dueDate, { start: periodStart, end: periodEnd })) {
-        console.log("✅ Match in range:", dueDate.toISOString());
-        dates.push(dueDate);
-      }
-    }
+    dates.push(...getQuarterlyHitDates(source, periodStart, periodEnd));
   }
 
   const sorted = dates.sort((a, b) => a.getTime() - b.getTime());
-  const match = sorted.find((d) =>
+
+  console.log("📆 Candidate hit dates:", {
+    name: source.name,
+    sorted,
+    periodStart,
+    periodEnd,
+    type: source.frequency,
+    weekly_day: source.weekly_day,
+    start_date: source.start_date,
+  });
+
+  // De-duplicate dates by day
+  const uniqueDates = sorted.filter(
+    (d, index, arr) => index === 0 || !isSameDay(d, arr[index - 1])
+  );
+
+  const hitsInRange = uniqueDates.filter((d) =>
     isWithinInterval(d, { start: periodStart, end: periodEnd })
   );
-  return match ?? null;
+
+  if (hitsInRange.length > 0) {
+    console.log("✅ Hits in range:", hitsInRange);
+    return hitsInRange;
+  }
+
+  console.log("❌ No matches found.");
+  return [];
 }

@@ -40,32 +40,32 @@ export default function PaycheckPage() {
 
   // Removed vault count effect (no longer needed)
 
-  // Helper to get due date for a fixed item
-  const getDueDateForItem = (
+  // Helper to get all due dates for a fixed item
+  const getDueDatesForItem = (
     item: FixedItem,
     selectedDate: PaycheckDate | null,
     start: Date | null,
     end: Date | null
-  ): Date | null => {
-    if (!selectedDate) return null;
-    if (item.frequency?.toLowerCase() === "per paycheck") {
-      return new Date(selectedDate.adjustedDate);
+  ): Date[] => {
+    if (!selectedDate) return [];
+    const frequency = item.frequency?.trim().toLowerCase();
+    if (frequency === "per paycheck") {
+      return [new Date(`${selectedDate.adjustedDate}T12:00:00`)];
     }
     if (start && end) {
-      // getIncomeHitDate now returns a Date object or null.
       return getIncomeHitDate(
         {
-          // Removed 'name' as it is not part of the expected type
-          // Removed 'amount' as it is not part of the expected type
           start_date: item.start_date ?? undefined,
-          frequency: item.frequency,
+          frequency: item.frequency?.trim().toLowerCase(),
           due_days: item.due_days?.map(String),
+          weekly_day: item.weekly_day ?? undefined,
+          name: item.name,
         },
         start,
         end
       );
     }
-    return null;
+    return [];
   };
   useEffect(() => {
     const all = generatePaycheckDates(
@@ -198,8 +198,30 @@ export default function PaycheckPage() {
             const starts = row.start_date ? new Date(row.start_date) : null;
             const isPerPaycheck =
               row.frequency?.toLowerCase() === "per paycheck";
-            const hits =
-              isPerPaycheck || getIncomeHitDate(row, periodStart, periodEnd);
+            const hitDates = isPerPaycheck
+              ? [true]
+              : getIncomeHitDate(
+                  {
+                    name: row.name,
+                    start_date: row.start_date ?? undefined,
+                    frequency: row.frequency,
+                    due_days: row.due_days?.map(String),
+                    weekly_day: row.weekly_day ?? undefined,
+                  },
+                  periodStart,
+                  periodEnd
+                );
+            console.log("🔍 Evaluating item:", {
+              name: row.name,
+              isPerPaycheck,
+              hitDates,
+              starts,
+              periodEnd,
+              include:
+                (!starts || starts <= periodEnd) &&
+                (isPerPaycheck || hitDates.length > 0),
+            });
+            const hits = isPerPaycheck || hitDates.length > 0;
             return (!starts || starts <= periodEnd) && hits;
           })
           .sort(
@@ -311,56 +333,31 @@ export default function PaycheckPage() {
           ) : (
             <ul className="ml-4 mt-2 list-disc text-sm">
               {[...fixedItems]
-                .map((item) => {
-                  // Calculate hitDate once
-                  const hitDate =
-                    item.frequency?.toLowerCase() === "per paycheck"
-                      ? new Date(`${selectedDate.adjustedDate}T00:00:00`)
-                      : getDueDateForItem(item, selectedDate, start, end);
-
-                  const displayDate =
-                    item.frequency?.toLowerCase() === "per paycheck"
-                      ? new Date(`${selectedDate.adjustedDate}T00:00:00`)
-                      : getDueDateForItem(item, selectedDate, start, end);
-
-                  // Debug frequency logic with detailed info
-                  console.log("🧪 Checking frequency logic:", {
-                    name: item.name,
-                    frequency: item.frequency,
-                    start_date: item.start_date,
-                    due_days: item.due_days,
-                    resultHitDate: hitDate,
-                  });
-
-                  console.log(
-                    "📅 Final displayDate:",
-                    item.name,
-                    displayDate?.toISOString?.()
+                .flatMap((item) => {
+                  const hitDates = getDueDatesForItem(
+                    item,
+                    selectedDate,
+                    start,
+                    end
                   );
-
-                  return {
+                  return hitDates.map((hitDate) => ({
                     ...item,
-                    dueDate: hitDate,
-                    displayDate: displayDate,
-                  };
+                    displayDate: hitDate,
+                  }));
                 })
                 .sort((a, b) => {
                   const aDate =
                     a.displayDate instanceof Date
                       ? a.displayDate
-                      : a.displayDate
-                      ? new Date(a.displayDate)
-                      : new Date();
+                      : new Date(a.displayDate);
                   const bDate =
                     b.displayDate instanceof Date
                       ? b.displayDate
-                      : b.displayDate
-                      ? new Date(b.displayDate)
-                      : new Date();
+                      : new Date(b.displayDate);
                   return aDate.getTime() - bDate.getTime();
                 })
-                .map((item) => (
-                  <li key={item.id}>
+                .map((item, index) => (
+                  <li key={`${item.id}-${index}`}>
                     {item.name} (${item.amount.toFixed(2)})
                     {item.displayDate
                       ? ` — due ${formatDisplayDate(
