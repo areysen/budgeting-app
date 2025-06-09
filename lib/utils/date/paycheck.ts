@@ -147,7 +147,11 @@ export function getIncomeHitDate(
   source.frequency = source.frequency?.trim().toLowerCase();
   const dates: Date[] = [];
 
-  if (source.due_days?.length) {
+  const freq = source.frequency ?? "";
+  if (
+    source.due_days?.length &&
+    ["", "monthly", "semi-monthly", "yearly"].includes(freq)
+  ) {
     dates.push(...getMonthlyHitDates(source, periodStart, periodEnd));
   }
 
