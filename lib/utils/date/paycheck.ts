@@ -3,10 +3,7 @@ import {
   subDays,
   parseISO,
   isWithinInterval,
-  isSameDay,
-  setDate,
-  setMonth,
-  setYear,
+  isSameDay
 } from "date-fns";
 import type { PaycheckDate } from "../generatePaycheckDates";
 
@@ -79,7 +76,7 @@ function getWeeklyHitDates(
     refDay <= targetDay ? targetDay - refDay : 7 - (refDay - targetDay);
   const firstHit = addDays(refStart, offset);
 
-  let candidate = new Date(periodStart);
+  const candidate = new Date(periodStart);
   candidate.setHours(12, 0, 0, 0);
   while (candidate <= periodEnd) {
     if (candidate.getDay() === targetDay) {
@@ -108,19 +105,34 @@ function getQuarterlyHitDates(
 
   const baseDate = new Date(source.start_date);
   baseDate.setHours(12, 0, 0, 0);
-  const baseDay = baseDate.getDate();
   const baseMonth = baseDate.getMonth();
   const baseYear = baseDate.getFullYear();
 
-  for (let offset = 0; offset < 12; offset += 3) {
-    for (const dayStr of source.due_days) {
+  for (let q = 0; q < 4; q++) {
+    const dayStr =
+      source.due_days[q] ?? source.due_days[source.due_days.length - 1];
+    if (!dayStr) continue;
+
+    const monthIndex = baseMonth + q * 3;
+    const year = baseYear + Math.floor(monthIndex / 12);
+    const month = monthIndex % 12;
+
+    let target: Date;
+    if (dayStr === "EOM") {
+      target = new Date(year, month + 1, 0, 12);
+    } else if (dayStr.includes("/")) {
+      const [mStr, dStr] = dayStr.split("/");
+      const overrideMonth = parseInt(mStr) - 1;
+      const day = parseInt(dStr);
+      target = new Date(year, overrideMonth, day, 12);
+    } else {
       const day = parseInt(dayStr);
       if (isNaN(day)) continue;
-      // Create target date with fixed noon time and avoid mutation artifacts
-      const target = new Date(baseYear, baseMonth + offset, day, 12);
-      if (isWithinInterval(target, { start: periodStart, end: periodEnd })) {
-        dates.push(new Date(target));
-      }
+      target = new Date(year, month, day, 12);
+    }
+
+    if (isWithinInterval(target, { start: periodStart, end: periodEnd })) {
+      dates.push(new Date(target));
     }
   }
 
@@ -135,7 +147,11 @@ export function getIncomeHitDate(
   source.frequency = source.frequency?.trim().toLowerCase();
   const dates: Date[] = [];
 
-  if (source.due_days?.length) {
+  const freq = source.frequency ?? "";
+  if (
+    source.due_days?.length &&
+    ["", "monthly", "semi-monthly", "yearly"].includes(freq)
+  ) {
     dates.push(...getMonthlyHitDates(source, periodStart, periodEnd));
   }
 
