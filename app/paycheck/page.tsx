@@ -39,42 +39,6 @@ export default function PaycheckPage() {
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
 
-  const incomeBreakdown = useMemo(() => {
-    if (!selectedDate || !start || !end) return [];
-    return incomeSources
-      .map((source) => {
-        if (source.name === "Paycheck") {
-          return {
-            id: source.id,
-            name: source.name,
-            amount: source.amount,
-            displayDate: formatDisplayDate(selectedDate.adjustedDate),
-          };
-        }
-
-        const hitDates = getIncomeHitDate(
-          {
-            ...source,
-            due_days: source.due_days?.map(String) ?? undefined,
-            weekly_day: source.weekly_day ?? undefined,
-            frequency: source.frequency ?? undefined,
-            start_date: source.start_date ?? undefined,
-          },
-          start,
-          end
-        );
-        if (!hitDates.length) return null;
-
-        return {
-          id: source.id,
-          name: source.name,
-          amount: source.amount,
-          displayDate: formatDisplayDate(hitDates[0].toISOString()),
-        };
-      })
-      .filter(Boolean) as { id: string; name: string; amount: number; displayDate: string }[];
-  }, [incomeSources, selectedDate, start, end]);
-
   const [fixedItems, setFixedItems] = useState<FixedItem[]>([]);
   const [vaultItems, setVaultItems] = useState<FixedItem[]>([]);
 
@@ -181,6 +145,47 @@ export default function PaycheckPage() {
     if (!selectedDate) return { start: null, end: null };
     return getPaycheckRange(selectedDate, nextPaycheck);
   }, [selectedDate, nextPaycheck]);
+
+  const incomeBreakdown = useMemo(() => {
+    if (!selectedDate || !start || !end) return [];
+    return incomeSources
+      .map((source) => {
+        if (source.name === "Paycheck") {
+          return {
+            id: source.id,
+            name: source.name,
+            amount: source.amount,
+            displayDate: formatDisplayDate(selectedDate.adjustedDate),
+          };
+        }
+
+        const hitDates = getIncomeHitDate(
+          {
+            ...source,
+            due_days: source.due_days?.map(String) ?? undefined,
+            weekly_day: source.weekly_day ?? undefined,
+            frequency: source.frequency ?? undefined,
+            start_date: source.start_date ?? undefined,
+          },
+          start,
+          end
+        );
+        if (!hitDates.length) return null;
+
+        return {
+          id: source.id,
+          name: source.name,
+          amount: source.amount,
+          displayDate: formatDisplayDate(hitDates[0].toISOString()),
+        };
+      })
+      .filter(Boolean) as {
+      id: string;
+      name: string;
+      amount: number;
+      displayDate: string;
+    }[];
+  }, [incomeSources, selectedDate, start, end]);
 
   // State for income total
   const [incomeTotal, setIncomeTotal] = useState<number>(0);
