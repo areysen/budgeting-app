@@ -109,7 +109,6 @@ export type Database = {
           transaction_match_keywords: string[] | null
           updated_at: string | null
           user_id: string | null
-          vault_direction: string | null
           vault_id: string | null
           weekly_day: string | null
         }
@@ -127,7 +126,6 @@ export type Database = {
           transaction_match_keywords?: string[] | null
           updated_at?: string | null
           user_id?: string | null
-          vault_direction?: string | null
           vault_id?: string | null
           weekly_day?: string | null
         }
@@ -145,7 +143,6 @@ export type Database = {
           transaction_match_keywords?: string[] | null
           updated_at?: string | null
           user_id?: string | null
-          vault_direction?: string | null
           vault_id?: string | null
           weekly_day?: string | null
         }

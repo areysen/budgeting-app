@@ -24,7 +24,6 @@ export function FixedItemForm({ item, onClose, onSave }: FixedItemFormProps) {
     is_income: item?.is_income ?? false,
     notes: item?.notes ?? "",
     vault_id: item?.vault_id ?? null,
-    vault_direction: item?.vault_direction ?? "",
     transaction_match_keywords: item?.transaction_match_keywords ?? [],
     weekly_day: item?.weekly_day ?? "",
   });
@@ -90,12 +89,7 @@ export function FixedItemForm({ item, onClose, onSave }: FixedItemFormProps) {
       ...formData,
       user_id: user?.id,
       vault_id: formData.vault_id || null,
-      vault_direction: formData.vault_id ? formData.vault_direction : null,
     };
-    if (formData.vault_id && !formData.vault_direction) {
-      alert("Please select a vault direction.");
-      return;
-    }
     if (item?.id) {
       await supabase.from("fixed_items").update(payload).eq("id", item.id);
     } else {
@@ -469,24 +463,7 @@ export function FixedItemForm({ item, onClose, onSave }: FixedItemFormProps) {
                 </option>
               ))}
             </Select>
-            {formData.vault_id && (
-              <div className="pt-2">
-                <label className="block text-sm font-medium text-foreground font-semibold">
-                  Vault Direction
-                </label>
-                <Select
-                  name="vault_direction"
-                  value={formData.vault_direction ?? ""}
-                  onChange={handleChange}
-                  className="w-full bg-card text-foreground border-border"
-                  required={!!formData.vault_id}
-                >
-                  <option value="">Select direction</option>
-                  <option value="transfer_in">Transfer into Vault</option>
-                  <option value="spend_from">Spend from Vault</option>
-                </Select>
-              </div>
-            )}
+            
           </div>
 
           <div>

@@ -58,7 +58,7 @@ export function FixedItemsList({
       const { data, error } = await supabase
         .from("fixed_items")
         .select(
-          "id, name, amount, frequency, due_days, weekly_day, start_date, is_income, notes, transaction_match_keywords, vault_direction, categories:categories(id, name), vaults(id, name)"
+          "id, name, amount, frequency, due_days, weekly_day, start_date, is_income, notes, transaction_match_keywords, categories:categories(id, name), vaults(id, name)"
         )
         .order("due_days");
 
@@ -183,12 +183,6 @@ export function FixedItemsList({
                       ? ` • Every other ${item.weekly_day}`
                       : ""}
                     {item.vaults?.name ? ` • Vault: ${item.vaults.name}` : ""}
-                    {item.vaults?.name && item.vault_direction === "transfer_in"
-                      ? " → Vault"
-                      : item.vaults?.name &&
-                        item.vault_direction === "spend_from"
-                      ? " ← Vault"
-                      : ""}
                     {item.is_income ? " • Income" : ""}
                   </div>
                   {item.notes && (
