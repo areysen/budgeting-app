@@ -37,6 +37,24 @@ export type FixedItemFormProps = {
   onSave: () => void;
 };
 
+export type IncomeSource = {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: string;
+  due_days?: string[];
+  start_date: string | null;
+  notes: string | null;
+  weekly_day?: string | null;
+  transaction_match_keywords?: string[] | null;
+};
+
+export type IncomeSourceFormProps = {
+  source?: IncomeSource | null;
+  onClose: () => void;
+  onSave: () => void;
+};
+
 export type PlaidAccount = {
   account_id: string;
   name: string;
