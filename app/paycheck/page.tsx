@@ -196,19 +196,18 @@ export default function PaycheckPage() {
           .filter((row) => {
             const starts = row.start_date ? new Date(row.start_date) : null;
             const isPaycheck = row.name?.toLowerCase().includes("paycheck");
-            const hitsInPeriod =
-              isPaycheck ||
-              getIncomeHitDate(
-                {
-                  ...row,
-                  due_days: row.due_days ?? undefined,
-                  weekly_day: row.weekly_day ?? undefined,
-                  frequency: row.frequency ?? undefined,
-                  start_date: row.start_date ?? undefined,
-                },
-                periodStart,
-                periodEnd
-              );
+            const hitDates = getIncomeHitDate(
+              {
+                ...row,
+                due_days: row.due_days ?? undefined,
+                weekly_day: row.weekly_day ?? undefined,
+                frequency: row.frequency ?? undefined,
+                start_date: row.start_date ?? undefined,
+              },
+              periodStart,
+              periodEnd
+            );
+            const hitsInPeriod = isPaycheck || hitDates.length > 0;
             return (!starts || starts <= periodEnd) && hitsInPeriod;
           })
           .sort(
