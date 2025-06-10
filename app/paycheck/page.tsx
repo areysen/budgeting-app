@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase/client";
 import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
 import { getPaycheckRange, getIncomeHitDate } from "@/lib/utils/date/paycheck";
 import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
-import { addDays } from "date-fns";
 import { FixedItem } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -179,11 +178,8 @@ export default function PaycheckPage() {
 
     setIsLoadingIncome(true);
 
-    const periodStart = new Date(selectedDate.adjustedDate);
-    const periodEnd = nextPaycheck
-      ? new Date(nextPaycheck.adjustedDate)
-      : addDays(periodStart, 13);
-    periodEnd.setDate(periodEnd.getDate() - 1);
+    const periodStart = start;
+    const periodEnd = end;
 
     supabase
       .from("income_sources")
@@ -241,11 +237,8 @@ export default function PaycheckPage() {
 
     setIsLoadingFixedItems(true);
 
-    const periodStart = new Date(selectedDate.adjustedDate);
-    const periodEnd = nextPaycheck
-      ? new Date(nextPaycheck.adjustedDate)
-      : addDays(periodStart, 13);
-    periodEnd.setDate(periodEnd.getDate() - 1);
+    const periodStart = start;
+    const periodEnd = end;
 
     supabase
       .from("fixed_items")
