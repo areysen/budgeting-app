@@ -52,10 +52,14 @@ export default function FixedItemsPage() {
           open={showCategoryManager}
           onOpenChange={setShowCategoryManager}
         >
-          <DialogContent className="max-w-md p-6 shadow-xl ring-border">
-            <DialogHeader>
-              <DialogTitle>Manage Categories</DialogTitle>
-            </DialogHeader>
+          <DialogContent
+            className="max-w-md p-6 shadow-xl ring-border"
+            header={
+              <DialogHeader>
+                <DialogTitle>Manage Categories</DialogTitle>
+              </DialogHeader>
+            }
+          >
             <CategoryManager />
           </DialogContent>
         </Dialog>
