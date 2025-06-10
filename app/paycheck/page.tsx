@@ -146,6 +146,47 @@ export default function PaycheckPage() {
     return getPaycheckRange(selectedDate, nextPaycheck);
   }, [selectedDate, nextPaycheck]);
 
+  const incomeBreakdown = useMemo(() => {
+    if (!selectedDate || !start || !end) return [];
+    return incomeSources
+      .map((source) => {
+        if (source.name === "Paycheck") {
+          return {
+            id: source.id,
+            name: source.name,
+            amount: source.amount,
+            displayDate: formatDisplayDate(selectedDate.adjustedDate),
+          };
+        }
+
+        const hitDates = getIncomeHitDate(
+          {
+            ...source,
+            due_days: source.due_days?.map(String) ?? undefined,
+            weekly_day: source.weekly_day ?? undefined,
+            frequency: source.frequency ?? undefined,
+            start_date: source.start_date ?? undefined,
+          },
+          start,
+          end
+        );
+        if (!hitDates.length) return null;
+
+        return {
+          id: source.id,
+          name: source.name,
+          amount: source.amount,
+          displayDate: formatDisplayDate(hitDates[0].toISOString()),
+        };
+      })
+      .filter(Boolean) as {
+      id: string;
+      name: string;
+      amount: number;
+      displayDate: string;
+    }[];
+  }, [incomeSources, selectedDate, start, end]);
+
   // State for income total
   const [incomeTotal, setIncomeTotal] = useState<number>(0);
 
@@ -386,41 +427,11 @@ export default function PaycheckPage() {
 
               {showIncomeBreakdown && (
                 <ul className="ml-4 mt-2 list-disc text-xs">
-                  {incomeSources.map((source) => {
-                    // Revised logic: Only show if date falls in current period
-                    if (source.name === "Paycheck") {
-                      const displayDate = formatDisplayDate(
-                        selectedDate.adjustedDate
-                      );
-                      return (
-                        <li key={source.id}>
-                          {source.name} (${source.amount.toFixed(2)}) —{" "}
-                          {displayDate}
-                        </li>
-                      );
-                    }
-                    const hitDates = getIncomeHitDate(
-                      {
-                        ...source,
-                        due_days: source.due_days?.map(String) ?? undefined,
-                        weekly_day: source.weekly_day ?? undefined,
-                        frequency: source.frequency ?? undefined,
-                        start_date: source.start_date ?? undefined,
-                      },
-                      start,
-                      end
-                    );
-                    if (!hitDates.length) return null;
-                    const displayDate = formatDisplayDate(
-                      hitDates[0].toISOString()
-                    );
-                    return (
-                      <li key={source.id}>
-                        {source.name} (${source.amount.toFixed(2)}) —{" "}
-                        {displayDate}
-                      </li>
-                    );
-                  })}
+                  {incomeBreakdown.map((item) => (
+                    <li key={item.id}>
+                      {item.name} (${item.amount.toFixed(2)}) — {item.displayDate}
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
