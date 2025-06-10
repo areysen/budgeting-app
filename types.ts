@@ -18,7 +18,6 @@ export type FixedItem = {
     name: string;
   } | null;
   vault_id?: string | null;
-  vault_direction?: string | null;
   weekly_day?: string;
 };
 
