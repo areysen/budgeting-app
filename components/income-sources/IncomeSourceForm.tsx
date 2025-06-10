@@ -387,6 +387,29 @@ export function IncomeSourceForm({
       </div>
 
       <div className="flex justify-end items-center gap-2">
+        {source?.id && (
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={async () => {
+              if (
+                confirm(
+                  "Are you sure you want to delete this income source?"
+                )
+              ) {
+                await supabase
+                  .from("income_sources")
+                  .delete()
+                  .eq("id", source.id);
+                onSave();
+                onClose();
+              }
+            }}
+            className="mr-auto"
+          >
+            Delete
+          </Button>
+        )}
         <Button type="button" variant="secondary" onClick={onClose}>
           Cancel
         </Button>
