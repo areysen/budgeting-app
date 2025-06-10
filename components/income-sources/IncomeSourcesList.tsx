@@ -7,7 +7,9 @@ import type { IncomeSource } from "@/types";
 function formatOrdinal(day: string) {
   const n = parseInt(day, 10);
   if (isNaN(n)) return day;
-  const suffix = ["th", "st", "nd", "rd"][n % 100 >= 11 && n % 100 <= 13 ? 0 : n % 10] || "th";
+  const suffix =
+    ["th", "st", "nd", "rd"][n % 100 >= 11 && n % 100 <= 13 ? 0 : n % 10] ||
+    "th";
   return `${n}${suffix}`;
 }
 
@@ -16,8 +18,12 @@ function formatDueDay(day: string) {
   return `on the ${formatOrdinal(day)}`;
 }
 
-function formatQuarterlyDates(dueDays: string[], startDate: string | null): string {
-  if (!startDate || dueDays.length !== 4) return dueDays.map(formatDueDay).join(", ");
+function formatQuarterlyDates(
+  dueDays: string[],
+  startDate: string | null
+): string {
+  if (!startDate || dueDays.length !== 4)
+    return dueDays.map(formatDueDay).join(", ");
 
   const start = new Date(startDate);
   const baseMonth = start.getMonth();
@@ -27,7 +33,10 @@ function formatQuarterlyDates(dueDays: string[], startDate: string | null): stri
     .map((day, index) => {
       const monthIndex = months[index] % 12;
       const date = new Date(2000, monthIndex, parseInt(day));
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
     })
     .join(", ");
 }
@@ -51,7 +60,12 @@ export function IncomeSourcesList({
         .order("due_days");
 
       if (!error && data) {
-        setItems(data);
+        setItems(
+          data.map((item) => ({
+            ...item,
+            due_days: item.due_days ?? undefined,
+          }))
+        );
       }
       setLoading(false);
     }
@@ -72,7 +86,9 @@ export function IncomeSourcesList({
           key={item.id}
           className="border border-border ring-border bg-card p-4 rounded-lg"
         >
-          <div className="text-base font-semibold text-foreground">{item.name}</div>
+          <div className="text-base font-semibold text-foreground">
+            {item.name}
+          </div>
           <div className="text-sm text-muted-foreground mt-1">
             <span className="font-medium">${item.amount.toFixed(2)}</span>
             {item.frequency === "Monthly" && item.due_days?.length === 1
@@ -88,7 +104,10 @@ export function IncomeSourcesList({
                     : formatOrdinal(item.due_days[1])
                 }`
               : item.frequency === "Quarterly" && item.due_days?.length === 4
-              ? ` • Quarterly on ${formatQuarterlyDates(item.due_days, item.start_date)}`
+              ? ` • Quarterly on ${formatQuarterlyDates(
+                  item.due_days,
+                  item.start_date
+                )}`
               : item.frequency === "Yearly" && item.due_days?.length === 1
               ? ` • Yearly ${formatDueDay(item.due_days[0])}`
               : item.frequency === "Per Paycheck"
@@ -118,4 +137,3 @@ export function IncomeSourcesList({
     </div>
   );
 }
-
