@@ -283,7 +283,6 @@ export default function PaycheckPage() {
     supabase
       .from("fixed_items")
       .select("*, frequency, categories(name)")
-      .eq("is_income", false)
       .then(({ data }) => {
         if (!data) {
           setFixedItems([]);
@@ -429,7 +428,8 @@ export default function PaycheckPage() {
                 <ul className="ml-4 mt-2 list-disc text-xs">
                   {incomeBreakdown.map((item) => (
                     <li key={item.id}>
-                      {item.name} (${item.amount.toFixed(2)}) — {item.displayDate}
+                      {item.name} (${item.amount.toFixed(2)}) —{" "}
+                      {item.displayDate}
                     </li>
                   ))}
                 </ul>

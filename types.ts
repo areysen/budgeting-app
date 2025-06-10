@@ -11,7 +11,6 @@ export type FixedItem = {
   frequency: string;
   due_days?: string[];
   start_date: string | null;
-  is_income: boolean;
   notes: string | null;
   vaults?: {
     id: string;

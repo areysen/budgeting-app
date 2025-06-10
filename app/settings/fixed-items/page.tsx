@@ -22,6 +22,7 @@ export default function FixedItemsPage() {
 
   return (
     <AuthGuard>
+      <div className="hidden force-scrollbar-classes" />
       <div className="space-y-4">
         <h1 className="text-3xl font-bold text-foreground">
           Fixed Budget Items

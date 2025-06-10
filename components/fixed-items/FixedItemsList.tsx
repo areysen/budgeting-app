@@ -58,7 +58,7 @@ export function FixedItemsList({
       const { data, error } = await supabase
         .from("fixed_items")
         .select(
-          "id, name, amount, frequency, due_days, weekly_day, start_date, is_income, notes, transaction_match_keywords, categories:categories(id, name), vaults(id, name)"
+          "id, name, amount, frequency, due_days, weekly_day, start_date, notes, transaction_match_keywords, categories:categories(id, name), vaults(id, name)"
         )
         .order("due_days");
 
@@ -105,21 +105,14 @@ export function FixedItemsList({
   if (items.length === 0)
     return <p className="text-muted-foreground">No fixed items found.</p>;
 
-  // Group items by category name, but put all is_income items under "Income"
+  // Group items by category name
   const groupedItems: { [category: string]: FixedItem[] } = {};
   items.forEach((item) => {
-    if (item.is_income) {
-      if (!groupedItems["Income"]) {
-        groupedItems["Income"] = [];
-      }
-      groupedItems["Income"].push(item);
-    } else {
-      const category = item.categories?.name ?? "Uncategorized";
-      if (!groupedItems[category]) {
-        groupedItems[category] = [];
-      }
-      groupedItems[category].push(item);
+    const category = item.categories?.name ?? "Uncategorized";
+    if (!groupedItems[category]) {
+      groupedItems[category] = [];
     }
+    groupedItems[category].push(item);
   });
 
   // Sort categories so "Income" is always last
@@ -183,7 +176,6 @@ export function FixedItemsList({
                       ? ` • Every other ${item.weekly_day}`
                       : ""}
                     {item.vaults?.name ? ` • Vault: ${item.vaults.name}` : ""}
-                    {item.is_income ? " • Income" : ""}
                   </div>
                   {item.notes && (
                     <div className="text-sm mt-1 italic text-muted-foreground">

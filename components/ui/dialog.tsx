@@ -25,14 +25,14 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       <div>
-        <div className="sticky top-0 z-20 bg-card border-b border-border flex items-center justify-between px-6 py-4">
+        <div className="sticky top-0 z-20 bg-card border-b border-border flex items-center justify-between pb-4">
           {header}
           <DialogPrimitive.Close className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         </div>
-        <div className="max-h-[calc(90vh-64px)] overflow-y-auto">
+        <div className="max-h-[calc(90vh-64px)] overflow-y-auto pt-4">
           {children}
         </div>
       </div>

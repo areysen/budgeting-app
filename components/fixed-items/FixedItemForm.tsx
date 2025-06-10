@@ -21,7 +21,6 @@ export function FixedItemForm({ item, onClose, onSave }: FixedItemFormProps) {
     frequency: item?.frequency ?? "Monthly",
     due_days: item?.due_days ?? [],
     start_date: item?.start_date ?? null,
-    is_income: item?.is_income ?? false,
     notes: item?.notes ?? "",
     vault_id: item?.vault_id ?? null,
     transaction_match_keywords: item?.transaction_match_keywords ?? [],
@@ -431,21 +430,6 @@ export function FixedItemForm({ item, onClose, onSave }: FixedItemFormProps) {
         </div>
 
         <div className="bg-muted/10 border border-border ring-border  rounded-lg p-6 space-y-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              name="is_income"
-              checked={formData.is_income}
-              onChange={handleChange}
-              id="is_income"
-            />
-            <label
-              htmlFor="is_income"
-              className="text-sm text-foreground font-semibold"
-            >
-              Is Income
-            </label>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-foreground font-semibold">
               Vault
@@ -463,7 +447,6 @@ export function FixedItemForm({ item, onClose, onSave }: FixedItemFormProps) {
                 </option>
               ))}
             </Select>
-            
           </div>
 
           <div>
