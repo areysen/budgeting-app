@@ -9,6 +9,7 @@ import { getPaycheckRange, getIncomeHitDate } from "@/lib/utils/date/paycheck";
 import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
 import { addDays } from "date-fns";
 import { FixedItem } from "@/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type PaycheckDate = {
   label: string;
@@ -20,6 +21,9 @@ export default function PaycheckPage() {
   // Removed unused vaultCount
   const [paycheckDates, setPaycheckDates] = useState<PaycheckDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<PaycheckDate | null>(null);
+
+  const [isLoadingIncome, setIsLoadingIncome] = useState(true);
+  const [isLoadingFixedItems, setIsLoadingFixedItems] = useState(true);
 
   type IncomeSource = {
     id: string;
@@ -37,35 +41,58 @@ export default function PaycheckPage() {
   const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
 
   const [fixedItems, setFixedItems] = useState<FixedItem[]>([]);
+  const [vaultItems, setVaultItems] = useState<FixedItem[]>([]);
 
   // Removed vault count effect (no longer needed)
 
-  // Helper to get all due dates for a fixed item
+  // Helper to get all due dates for a fixed item (updated to check start_date)
   const getDueDatesForItem = (
     item: FixedItem,
     selectedDate: PaycheckDate | null,
     start: Date | null,
     end: Date | null
   ): Date[] => {
-    if (!selectedDate) return [];
+    if (!selectedDate || !start || !end) return [];
+
+    const starts = item.start_date ? new Date(item.start_date) : null;
+
+    // 💡 If item has a start_date and it's AFTER the current range, skip it
+    if (starts && starts > end) return [];
+
     const frequency = item.frequency?.trim().toLowerCase();
     if (frequency === "per paycheck") {
       return [new Date(`${selectedDate.adjustedDate}T12:00:00`)];
     }
-    if (start && end) {
-      return getIncomeHitDate(
-        {
-          start_date: item.start_date ?? undefined,
-          frequency: item.frequency?.trim().toLowerCase(),
-          due_days: item.due_days?.map(String),
-          weekly_day: item.weekly_day ?? undefined,
-          name: item.name,
-        },
-        start,
-        end
-      );
+
+    // 🧠 Hit Date Check Triggered For:
+    console.log("🧠 Hit Date Check Triggered For:", {
+      name: item.name,
+      frequency: item.frequency,
+      due_days: item.due_days,
+      weekly_day: item.weekly_day,
+      start_date: item.start_date,
+      start: start.toISOString(),
+      end: end.toISOString(),
+    });
+
+    // Additional log for monthly candidate date
+    if (item.frequency === "monthly") {
+      const monthDate = new Date(start);
+      monthDate.setDate(parseInt(item.due_days?.[0] || "1"));
+      console.log("🧪 Monthly candidate date:", monthDate.toISOString());
     }
-    return [];
+
+    return getIncomeHitDate(
+      {
+        start_date: item.start_date ?? undefined, // keep as undefined if null
+        frequency,
+        due_days: item.due_days?.map(String),
+        weekly_day: item.weekly_day ?? undefined,
+        name: item.name,
+      },
+      start,
+      end
+    );
   };
   useEffect(() => {
     const all = generatePaycheckDates(
@@ -99,10 +126,21 @@ export default function PaycheckPage() {
 
   // Compute current and next paycheck range and formatted label
   const currentIndex = paycheckDates.findIndex(
-    (p) => p.adjustedDate === selectedDate?.adjustedDate
+    (p) => p.officialDate === selectedDate?.officialDate
   );
-  const nextPaycheck =
+  let nextPaycheck =
     currentIndex !== -1 ? paycheckDates[currentIndex + 1] : undefined;
+
+  // Defensive fix: If selectedDate is a Month EOM, and nextPaycheck is also EOM (or not the 15th),
+  // look ahead for the *true* next paycheck (which should be the 15th of the following month)
+  if (
+    selectedDate?.label.includes("EOM") &&
+    nextPaycheck &&
+    !nextPaycheck.label.includes("15") &&
+    paycheckDates[currentIndex + 2]
+  ) {
+    nextPaycheck = paycheckDates[currentIndex + 2];
+  }
 
   const { start, end } = useMemo(() => {
     if (!selectedDate) return { start: null, end: null };
@@ -112,9 +150,34 @@ export default function PaycheckPage() {
   // State for income total
   const [incomeTotal, setIncomeTotal] = useState<number>(0);
 
+  const fixedExpensesTotal = useMemo(() => {
+    return fixedItems
+      .flatMap((item) => {
+        const hitDates = getDueDatesForItem(item, selectedDate, start, end);
+        return hitDates.map(() => item.amount);
+      })
+      .reduce((sum, amount) => sum + amount, 0);
+  }, [fixedItems, selectedDate, start, end]);
+
+  const vaultContributionsTotal = useMemo(() => {
+    return vaultItems
+      .flatMap((item) => {
+        const starts = item.start_date ? new Date(item.start_date) : null;
+        if (starts && starts > end) return [];
+        const hitDates = getDueDatesForItem(item, selectedDate, start, end);
+        return hitDates.map(() => item.amount);
+      })
+      .reduce((sum, amount) => sum + amount, 0);
+  }, [vaultItems, selectedDate, start, end]);
+
+  const unallocatedBalance =
+    incomeTotal - fixedExpensesTotal - vaultContributionsTotal;
+
   // Load income from income_sources for the selected period
   useEffect(() => {
     if (!selectedDate || !start || !end) return;
+
+    setIsLoadingIncome(true);
 
     const periodStart = new Date(selectedDate.adjustedDate);
     const periodEnd = nextPaycheck
@@ -129,6 +192,7 @@ export default function PaycheckPage() {
         if (!data) {
           setIncomeTotal(0);
           setIncomeSources([]);
+          setIsLoadingIncome(false);
           return;
         }
 
@@ -168,11 +232,14 @@ export default function PaycheckPage() {
             due_days: row.due_days ? row.due_days.map(Number) : undefined,
           }))
         );
+        setIsLoadingIncome(false);
       });
   }, [selectedDate, start, end, nextPaycheck]);
 
   useEffect(() => {
     if (!selectedDate || !start || !end) return;
+
+    setIsLoadingFixedItems(true);
 
     const periodStart = new Date(selectedDate.adjustedDate);
     const periodEnd = nextPaycheck
@@ -182,22 +249,53 @@ export default function PaycheckPage() {
 
     supabase
       .from("fixed_items")
-      .select("*, frequency")
+      .select("*, frequency, categories(name)")
       .eq("is_income", false)
       .then(({ data }) => {
         if (!data) {
           setFixedItems([]);
+          setIsLoadingFixedItems(false);
           return;
         }
 
         // Normalize each fixed item
         const normalizedItems = data.map(normalizeFixedItem);
 
+        // Vault contributions: filter by related category name "vault"
+        const vaultContributions = normalizedItems.filter(
+          (row) => row.categories?.name?.trim().toLowerCase() === "vault"
+        );
+
+        // Fixed Expenses: exclude items with related category name "vault"
         const items = normalizedItems
           .filter((row) => {
+            const isVault =
+              row.categories?.name?.trim().toLowerCase() === "vault";
+            if (isVault) return false;
+
+            // 🧠 Hit Date Check Triggered For:
+            console.log("🧠 Hit Date Check Triggered For:", {
+              name: row.name,
+              frequency: row.frequency,
+              due_days: row.due_days,
+              weekly_day: row.weekly_day,
+              start_date: row.start_date,
+              start: periodStart.toISOString(),
+              end: periodEnd.toISOString(),
+            });
+            if (row.frequency === "monthly") {
+              const monthDate = new Date(periodStart);
+              monthDate.setDate(parseInt(row.due_days?.[0] || "1"));
+              console.log(
+                "🧪 Monthly candidate date:",
+                monthDate.toISOString()
+              );
+            }
+
             const starts = row.start_date ? new Date(row.start_date) : null;
             const isPerPaycheck =
               row.frequency?.toLowerCase() === "per paycheck";
+
             const hitDates = isPerPaycheck
               ? [true]
               : getIncomeHitDate(
@@ -211,17 +309,19 @@ export default function PaycheckPage() {
                   periodStart,
                   periodEnd
                 );
-            console.log("🔍 Evaluating item:", {
+
+            const hits = isPerPaycheck || hitDates.length > 0;
+
+            console.log("🧾 Evaluating Fixed Item:", {
               name: row.name,
               isPerPaycheck,
-              hitDates,
-              starts,
+              start_date: starts,
+              periodStart,
               periodEnd,
-              include:
-                (!starts || starts <= periodEnd) &&
-                (isPerPaycheck || hitDates.length > 0),
+              hitDates: hitDates.map((d: Date) => d.toISOString?.() ?? d),
+              include: (!starts || starts <= periodEnd) && hits,
             });
-            const hits = isPerPaycheck || hitDates.length > 0;
+
             return (!starts || starts <= periodEnd) && hits;
           })
           .sort(
@@ -231,6 +331,8 @@ export default function PaycheckPage() {
           );
 
         setFixedItems(items);
+        setVaultItems(vaultContributions);
+        setIsLoadingFixedItems(false);
       });
   }, [selectedDate, start, end, nextPaycheck]);
 
@@ -264,9 +366,11 @@ export default function PaycheckPage() {
           <h2 className="text-lg font-semibold text-foreground mb-2">
             Income Summary
           </h2>
-          {!selectedDate || !start || !end ? (
-            <div className="text-sm text-muted-foreground">
-              Select a paycheck to begin planning.
+          {isLoadingIncome ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
             <div className="space-y-1 text-sm text-muted-foreground">
@@ -291,28 +395,37 @@ export default function PaycheckPage() {
               {showIncomeBreakdown && (
                 <ul className="ml-4 mt-2 list-disc text-xs">
                   {incomeSources.map((source) => {
-                    // Always display dates using formatDisplayDate for consistency
-                    const displayDate = (() => {
-                      if (source.name === "Paycheck") {
-                        return formatDisplayDate(selectedDate.adjustedDate);
-                      }
-                      const hit = getIncomeHitDate(
-                        {
-                          ...source,
-                          due_days: source.due_days ?? undefined,
-                          weekly_day: source.weekly_day ?? undefined,
-                          frequency: source.frequency ?? undefined,
-                          start_date: source.start_date ?? undefined,
-                        },
-                        start,
-                        end
+                    // Revised logic: Only show if date falls in current period
+                    if (source.name === "Paycheck") {
+                      const displayDate = formatDisplayDate(
+                        selectedDate.adjustedDate
                       );
-                      return hit ? formatDisplayDate(hit.toISOString()) : "";
-                    })();
+                      return (
+                        <li key={source.id}>
+                          {source.name} (${source.amount.toFixed(2)}) —{" "}
+                          {displayDate}
+                        </li>
+                      );
+                    }
+                    const hitDates = getIncomeHitDate(
+                      {
+                        ...source,
+                        due_days: source.due_days?.map(String) ?? undefined,
+                        weekly_day: source.weekly_day ?? undefined,
+                        frequency: source.frequency ?? undefined,
+                        start_date: source.start_date ?? undefined,
+                      },
+                      start,
+                      end
+                    );
+                    if (!hitDates.length) return null;
+                    const displayDate = formatDisplayDate(
+                      hitDates[0].toISOString()
+                    );
                     return (
                       <li key={source.id}>
-                        {source.name} (${source.amount.toFixed(2)})
-                        {displayDate ? ` — ${displayDate}` : ""}
+                        {source.name} (${source.amount.toFixed(2)}) —{" "}
+                        {displayDate}
                       </li>
                     );
                   })}
@@ -326,9 +439,11 @@ export default function PaycheckPage() {
           <h2 className="text-lg font-semibold text-foreground mb-2">
             Fixed Expenses
           </h2>
-          {!selectedDate ? (
-            <div className="text-sm text-muted-foreground">
-              Select a paycheck to view.
+          {isLoadingFixedItems ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
             <ul className="ml-4 mt-2 list-disc text-sm">
@@ -375,27 +490,68 @@ export default function PaycheckPage() {
             Vault Contributions
           </h2>
           {!selectedDate ? (
-            <div className="text-sm text-muted-foreground">
-              Select a paycheck to view.
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">
-              [Placeholder for content related to {selectedDate.adjustedDate}]
-            </div>
+            <ul className="ml-4 mt-2 list-disc text-sm">
+              {[...vaultItems]
+                .flatMap((item) => {
+                  const starts = item.start_date
+                    ? new Date(item.start_date)
+                    : null;
+                  if (starts && starts > end) return [];
+                  const hitDates = getDueDatesForItem(
+                    item,
+                    selectedDate,
+                    start,
+                    end
+                  );
+                  return hitDates.map((hitDate) => ({
+                    ...item,
+                    displayDate: hitDate,
+                  }));
+                })
+                .sort((a, b) => {
+                  const aDate =
+                    a.displayDate instanceof Date
+                      ? a.displayDate
+                      : new Date(a.displayDate);
+                  const bDate =
+                    b.displayDate instanceof Date
+                      ? b.displayDate
+                      : new Date(b.displayDate);
+                  return aDate.getTime() - bDate.getTime();
+                })
+                .map((item, index) => (
+                  <li key={`${item.id}-${index}`}>
+                    {item.name} (${item.amount.toFixed(2)})
+                    {item.displayDate
+                      ? ` — due ${formatDisplayDate(
+                          new Date(item.displayDate).toISOString()
+                        )}`
+                      : ""}
+                  </li>
+                ))}
+            </ul>
           )}
         </section>
 
-        <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
+        <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
           <h2 className="text-lg font-semibold text-foreground mb-2">
             Unallocated Balance
           </h2>
-          {!selectedDate ? (
-            <div className="text-sm text-muted-foreground">
-              Select a paycheck to view.
+          {isLoadingIncome || isLoadingFixedItems ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">
-              [Placeholder for content related to {selectedDate.adjustedDate}]
+              ${unallocatedBalance.toFixed(2)} available
             </div>
           )}
         </section>

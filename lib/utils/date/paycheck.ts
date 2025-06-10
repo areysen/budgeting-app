@@ -3,7 +3,8 @@ import {
   subDays,
   parseISO,
   isWithinInterval,
-  isSameDay
+  isSameDay,
+  set,
 } from "date-fns";
 import type { PaycheckDate } from "../generatePaycheckDates";
 
@@ -18,9 +19,17 @@ interface FrequencySource {
 // Return the end of a paycheck period
 export function getPaycheckRange(current: PaycheckDate, next?: PaycheckDate) {
   const start = parseISO(current.adjustedDate);
-  const end = next
+  const rawEnd = next
     ? subDays(parseISO(next.adjustedDate), 1)
-    : addDays(start, 13); // fallback = 2-week window
+    : addDays(start, 13);
+
+  const end = set(rawEnd, {
+    hours: 23,
+    minutes: 59,
+    seconds: 59,
+    milliseconds: 999,
+  });
+
   return { start, end };
 }
 
@@ -41,9 +50,36 @@ function getMonthlyHitDates(
       d = new Date(periodStart.getFullYear(), month, day);
     } else {
       const day = parseInt(dayStr);
-      d = new Date(periodStart.getFullYear(), periodStart.getMonth(), day);
+      const candidate = new Date(
+        periodStart.getFullYear(),
+        periodStart.getMonth(),
+        day
+      );
+      if (candidate < periodStart) {
+        d = new Date(
+          periodStart.getFullYear(),
+          periodStart.getMonth() + 1,
+          day
+        );
+      } else {
+        d = candidate;
+      }
     }
-    if (d && isWithinInterval(d, { start: periodStart, end: periodEnd })) {
+    if (
+      d &&
+      isWithinInterval(d, {
+        start: periodStart,
+        end: new Date(
+          periodEnd.getFullYear(),
+          periodEnd.getMonth(),
+          periodEnd.getDate(),
+          23,
+          59,
+          59,
+          999
+        ),
+      })
+    ) {
       dates.push(d);
     }
   }
@@ -144,26 +180,27 @@ export function getIncomeHitDate(
   periodStart: Date,
   periodEnd: Date
 ): Date[] {
-  source.frequency = source.frequency?.trim().toLowerCase();
+  const frequency = source.frequency?.trim().toLowerCase() ?? "";
   const dates: Date[] = [];
 
-  const freq = source.frequency ?? "";
   if (
     source.due_days?.length &&
-    ["", "monthly", "semi-monthly", "yearly"].includes(freq)
+    (frequency === "monthly" ||
+      frequency === "semi-monthly" ||
+      frequency === "yearly")
   ) {
     dates.push(...getMonthlyHitDates(source, periodStart, periodEnd));
   }
 
   if (
     source.weekly_day &&
-    (source.frequency === "weekly" || source.frequency === "biweekly")
+    (frequency === "weekly" || frequency === "biweekly")
   ) {
     dates.push(...getWeeklyHitDates(source, periodStart, periodEnd));
   }
 
   if (
-    source.frequency === "quarterly" &&
+    frequency === "quarterly" &&
     source.due_days?.length &&
     source.start_date
   ) {
@@ -172,30 +209,41 @@ export function getIncomeHitDate(
 
   const sorted = dates.sort((a, b) => a.getTime() - b.getTime());
 
-  console.log("📆 Candidate hit dates:", {
-    name: source.name,
-    sorted,
-    periodStart,
-    periodEnd,
-    type: source.frequency,
-    weekly_day: source.weekly_day,
-    start_date: source.start_date,
-  });
-
   // De-duplicate dates by day
   const uniqueDates = sorted.filter(
     (d, index, arr) => index === 0 || !isSameDay(d, arr[index - 1])
   );
 
   const hitsInRange = uniqueDates.filter((d) =>
-    isWithinInterval(d, { start: periodStart, end: periodEnd })
+    isWithinInterval(d, {
+      start: periodStart,
+      end: new Date(
+        periodEnd.getFullYear(),
+        periodEnd.getMonth(),
+        periodEnd.getDate(),
+        23,
+        59,
+        59,
+        999
+      ),
+    })
   );
 
-  if (hitsInRange.length > 0) {
-    console.log("✅ Hits in range:", hitsInRange);
-    return hitsInRange;
+  // Fallback: if frequency is 'monthly' and due_days is missing or empty, assume 1st of the month
+  if (
+    hitsInRange.length === 0 &&
+    frequency === "monthly" &&
+    (!source.due_days || source.due_days.length === 0)
+  ) {
+    const assumed = new Date(
+      periodStart.getFullYear(),
+      periodStart.getMonth(),
+      1
+    );
+    if (isWithinInterval(assumed, { start: periodStart, end: periodEnd })) {
+      hitsInRange.push(assumed);
+    }
   }
 
-  console.log("❌ No matches found.");
-  return [];
+  return hitsInRange;
 }
