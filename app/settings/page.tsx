@@ -20,7 +20,12 @@ export default function SettingsPage() {
             Income Setup
           </h2>
           <div className="text-sm text-muted-foreground">
-            [Placeholder for income sources and schedules]
+            <a
+              href="/settings/income-sources"
+              className="text-primary underline hover:opacity-80"
+            >
+              Manage income sources
+            </a>
           </div>
         </section>
 
