@@ -487,6 +487,29 @@ export function FixedItemForm({ item, onClose, onSave }: FixedItemFormProps) {
         </div>
 
         <div className="flex justify-end items-center gap-2">
+          {item?.id && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={async () => {
+                if (
+                  confirm(
+                    "Are you sure you want to delete this fixed item?"
+                  )
+                ) {
+                  await supabase
+                    .from("fixed_items")
+                    .delete()
+                    .eq("id", item.id);
+                  onSave();
+                  onClose();
+                }
+              }}
+              className="mr-auto"
+            >
+              Delete
+            </Button>
+          )}
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>

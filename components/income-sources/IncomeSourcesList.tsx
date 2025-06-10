@@ -124,13 +124,35 @@ export function IncomeSourcesList({
               {item.notes}
             </div>
           )}
-          {editable && onEdit && (
-            <button
-              onClick={() => onEdit(item)}
-              className="text-sm text-primary hover:text-primary/80 underline mt-1 transition-colors"
-            >
-              Edit
-            </button>
+          {editable && (
+            <div className="flex gap-2 mt-1">
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(item)}
+                  className="text-sm text-primary hover:text-primary/80 underline transition-colors"
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={async () => {
+                  if (
+                    confirm(
+                      "Are you sure you want to delete this income source?"
+                    )
+                  ) {
+                    await supabase
+                      .from("income_sources")
+                      .delete()
+                      .eq("id", item.id);
+                    setItems((prev) => prev.filter((i) => i.id !== item.id));
+                  }
+                }}
+                className="text-sm text-destructive hover:text-destructive/80 underline transition-colors"
+              >
+                Delete
+              </button>
+            </div>
           )}
         </div>
       ))}
