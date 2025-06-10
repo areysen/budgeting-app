@@ -1,27 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+# Budgeting App
+
+A personal finance manager built with Next.js, Supabase, and Plaid. The application lets you connect bank accounts, track transactions, and organize money into vaults.
+
+## Features
+
+- Authenticate and store user data with Supabase
+- Connect bank accounts through Plaid to import transactions
+- Manage vaults and categorize expenses
+- Dashboard showing recent activity and paycheck summaries
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18 or higher
+- Supabase CLI installed for local development
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env  # add your Supabase and Plaid credentials
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Start the local Supabase stack and run the dev server:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+supabase start
+npm run dev
+```
+
+Open <http://localhost:3000> in your browser.
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and provide the values for your environment. The following variables are required:
+The following variables must be provided in `.env`:
 
 ```
 SUPABASE_URL=
@@ -32,56 +45,22 @@ PLAID_CLIENT_ID=
 PLAID_SECRET=
 ```
 
-If you see `Failed to create link token` in the browser console, check that your
-Plaid and Supabase credentials are correctly set in `.env`.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Configuration
-
-Copy `.env.example` to `.env` and provide your credentials for Supabase and Plaid:
-
-```bash
-cp .env.example .env
-```
-
-```
-SUPABASE_URL=your-supabase-url
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-PLAID_CLIENT_ID=your-plaid-client-id
-PLAID_SECRET=your-plaid-secret
-PLAID_ENV=sandbox
-```
-
 `PLAID_ENV` supports `sandbox`, `development`, or `production`.
 
-To run the Supabase stack locally, install the Supabase CLI and run:
+## Project Structure
 
-```bash
-supabase start
-```
+- `app/` – Next.js routes and pages
+- `components/` – Shared UI and feature components
+- `lib/` – Utility libraries including Supabase helpers
+- `supabase/` – Local Supabase configuration
 
+Additional guides are available in the [docs](docs/) directory.
 
-## Learn More
+## Contributing
 
-To learn more about Next.js, take a look at the following resources:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on developing and submitting changes.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-## Environment Variables
-
-The application expects the following Supabase environment variables to be set:
-
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-
-These variables are used in the Next.js API routes.
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
