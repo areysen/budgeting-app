@@ -33,11 +33,22 @@ export async function loadForecastForPeriod(
 ): Promise<ForecastResult> {
   const forecastStart = iso(startDate);
 
-  const [{ data: incomeSources }, { data: fixedItems }, { data: adjustments }, { data: oneOffs }] = await Promise.all([
+  const [
+    { data: incomeSources },
+    { data: fixedItems },
+    { data: adjustments },
+    { data: oneOffs },
+  ] = await Promise.all([
     supabase.from("income_sources").select("*"),
     supabase.from("fixed_items").select("*"),
-    supabase.from("forecast_adjustments").select("*").eq("forecast_start", forecastStart),
-    supabase.from("forecast_oneoffs").select("*").eq("forecast_start", forecastStart),
+    supabase
+      .from("forecast_adjustments")
+      .select("*")
+      .eq("forecast_start", forecastStart),
+    supabase
+      .from("forecast_oneoffs")
+      .select("*")
+      .eq("forecast_start", forecastStart),
   ]);
 
   type Adjustment = {
@@ -92,6 +103,9 @@ export async function loadForecastForPeriod(
     );
     if (hits.length > 0 || item.frequency.toLowerCase() === "per paycheck") {
       const adj = adjustmentMap.get(item.id);
+      if (adj?.defer_to_start && adj.defer_to_start !== forecastStart) {
+        return; // Skip this item – it's deferred to a future paycheck
+      }
       const isDeferred = Boolean(adj?.defer_to_start);
       const amount = adj?.override_amount ?? item.amount;
       expenses.push({
