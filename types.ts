@@ -18,6 +18,7 @@ export type FixedItem = {
   } | null;
   vault_id?: string | null;
   weekly_day?: string;
+  originalForecastStart?: string;
 };
 
 export type Vault = {

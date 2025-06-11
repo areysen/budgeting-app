@@ -373,67 +373,107 @@ export default function PaycheckPage() {
     const periodStart = start;
     const periodEnd = end;
 
-    supabase
-      .from("fixed_items")
-      .select("*, frequency, categories(name)")
-      .then(({ data }) => {
-        if (!data) {
-          setFixedItems([]);
-          setIsLoadingFixedItems(false);
-          return;
-        }
+    // Get userId for deferred query
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const userId = user?.id;
+      // Fetch regular fixed items
+      supabase
+        .from("fixed_items")
+        .select("*, frequency, categories(name)")
+        .then(async ({ data }) => {
+          if (!data) {
+            setFixedItems([]);
+            setIsLoadingFixedItems(false);
+            return;
+          }
 
-        // Normalize each fixed item
-        const normalizedItems = data.map(normalizeFixedItem);
+          // Normalize each fixed item
+          const normalizedItems = data.map(normalizeFixedItem);
 
-        // Vault contributions: filter by related category name "vault"
-        const vaultContributions = normalizedItems.filter(
-          (row) => row.categories?.name?.trim().toLowerCase() === "vault"
-        );
-
-        // Fixed Expenses: exclude items with related category name "vault"
-        const items = normalizedItems
-          .filter((row) => {
-            const isVault =
-              row.categories?.name?.trim().toLowerCase() === "vault";
-            if (isVault) return false;
-            if (row.frequency === "monthly") {
-              const monthDate = new Date(periodStart);
-              monthDate.setDate(parseInt(row.due_days?.[0] || "1"));
-            }
-
-            const starts = row.start_date ? new Date(row.start_date) : null;
-            const isPerPaycheck =
-              row.frequency?.toLowerCase() === "per paycheck";
-
-            const hitDates = isPerPaycheck
-              ? [true]
-              : getIncomeHitDate(
-                  {
-                    name: row.name,
-                    start_date: row.start_date ?? undefined,
-                    frequency: row.frequency,
-                    due_days: row.due_days?.map(String),
-                    weekly_day: row.weekly_day ?? undefined,
-                  },
-                  periodStart,
-                  periodEnd
-                );
-
-            const hits = isPerPaycheck || hitDates.length > 0;
-
-            return (!starts || starts <= periodEnd) && hits;
-          })
-          .sort(
-            (a, b) =>
-              new Date(a.start_date ?? "1970-01-01").getTime() -
-              new Date(b.start_date ?? "1970-01-01").getTime()
+          // Vault contributions: filter by related category name "vault"
+          const vaultContributions = normalizedItems.filter(
+            (row) => row.categories?.name?.trim().toLowerCase() === "vault"
           );
 
-        setFixedItems(items);
-        setVaultItems(vaultContributions);
-        setIsLoadingFixedItems(false);
-      });
+          // Fixed Expenses: exclude items with related category name "vault"
+          let items = normalizedItems
+            .filter((row) => {
+              const isVault =
+                row.categories?.name?.trim().toLowerCase() === "vault";
+              if (isVault) return false;
+              if (row.frequency === "monthly") {
+                const monthDate = new Date(periodStart);
+                monthDate.setDate(parseInt(row.due_days?.[0] || "1"));
+              }
+
+              const starts = row.start_date ? new Date(row.start_date) : null;
+              const isPerPaycheck =
+                row.frequency?.toLowerCase() === "per paycheck";
+
+              const hitDates = isPerPaycheck
+                ? [true]
+                : getIncomeHitDate(
+                    {
+                      name: row.name,
+                      start_date: row.start_date ?? undefined,
+                      frequency: row.frequency,
+                      due_days: row.due_days?.map(String),
+                      weekly_day: row.weekly_day ?? undefined,
+                    },
+                    periodStart,
+                    periodEnd
+                  );
+
+              const hits = isPerPaycheck || hitDates.length > 0;
+
+              return (!starts || starts <= periodEnd) && hits;
+            })
+            .sort(
+              (a, b) =>
+                new Date(a.start_date ?? "1970-01-01").getTime() -
+                new Date(b.start_date ?? "1970-01-01").getTime()
+            );
+
+          // --- Deferred fixed items ---
+          if (userId) {
+            const { data: deferredAdjustments, error: deferredError } =
+              await supabase
+                .from("forecast_adjustments")
+                .select("*, fixed_items(*)")
+                .eq("defer_to_start", periodStart.toISOString().slice(0, 10))
+                .eq("user_id", userId);
+
+            if (deferredError) {
+              console.error(
+                "Failed to fetch deferred forecast adjustments:",
+                deferredError
+              );
+            } else {
+              deferredAdjustments?.forEach((def) => {
+                if (def.fixed_items) {
+                  // Build deferred item, include originalForecastStart
+                  const deferredItem = {
+                    ...def.fixed_items,
+                    id: `${def.fixed_item_id}-deferred`,
+                    amount: def.override_amount ?? def.fixed_items.amount,
+                    isDeferred: true,
+                    source: "deferred",
+                    adjustment_id: def.id,
+                    // Pass real fixed_item_id and the originating forecast_start
+                    originalFixedItemId: def.fixed_item_id,
+                    forecastStart: def.defer_to_start,
+                    originalForecastStart: def.forecast_start,
+                  };
+                  items.push(deferredItem);
+                }
+              });
+            }
+          }
+          setFixedItems(items);
+          setVaultItems(vaultContributions);
+          setIsLoadingFixedItems(false);
+        });
+    });
   }, [selectedDate, start, end, nextPaycheck]);
 
   return (
@@ -522,6 +562,19 @@ export default function PaycheckPage() {
             <div className="space-y-2">
               {[...fixedItems]
                 .flatMap((item) => {
+                  // For deferred items, always show (do not skip for defer_to_start)
+                  if (item.source === "deferred") {
+                    // Show as a single entry, with displayDate as periodStart
+                    return [
+                      {
+                        ...item,
+                        displayDate: start,
+                        adjustedAmount: item.amount,
+                        // Ensure originalForecastStart present
+                        originalForecastStart: item.originalForecastStart,
+                      },
+                    ];
+                  }
                   // Skip if an adjustment for this item defers it to another period
                   const skip = adjustments.some(
                     (a) =>
@@ -559,12 +612,38 @@ export default function PaycheckPage() {
                   <FixedItemForecastModal
                     key={`${item.id}-${index}`}
                     fixedItem={item}
-                    forecastStart={start?.toISOString().slice(0, 10) ?? ""}
+                    // If deferred, use originalFixedItemId and originalForecastStart for modal logic.
+                    fixedItemId={
+                      item.source === "deferred"
+                        ? item.originalFixedItemId ||
+                          item.id.replace("-deferred", "")
+                        : item.id
+                    }
+                    forecastStart={
+                      item.source === "deferred"
+                        ? (item.originalForecastStart ||
+                            start?.toISOString().slice(0, 10)) ??
+                          ""
+                        : start?.toISOString().slice(0, 10) ?? ""
+                    }
                     onSaved={refreshAdjustments}
                     trigger={
-                      <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition cursor-pointer">
-                        <div className="text-sm font-medium text-foreground">
+                      <div
+                        className={`flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition cursor-pointer ${
+                          item.source === "deferred" ? "opacity-60 italic" : ""
+                        }`}
+                        onClick={() => {
+                          // Ensure selectedItem (if set anywhere) would include originalForecastStart if deferred
+                          // If you have setSelectedItem, ensure you pass through originalForecastStart for deferreds
+                        }}
+                      >
+                        <div className="text-sm font-medium text-foreground flex items-center gap-1">
                           {item.name}
+                          {item.source === "deferred" && (
+                            <span className="ml-2 text-xs italic text-muted-foreground">
+                              (Deferred)
+                            </span>
+                          )}
                         </div>
                         <div className="text-right text-sm text-muted-foreground">
                           <div>${item.adjustedAmount.toFixed(2)}</div>
@@ -641,7 +720,19 @@ export default function PaycheckPage() {
                   <FixedItemForecastModal
                     key={`${item.id}-${index}`}
                     fixedItem={item}
-                    forecastStart={start?.toISOString().slice(0, 10) ?? ""}
+                    fixedItemId={
+                      item.source === "deferred"
+                        ? item.originalFixedItemId ||
+                          item.id.replace("-deferred", "")
+                        : item.id
+                    }
+                    forecastStart={
+                      item.source === "deferred"
+                        ? (item.originalForecastStart ||
+                            start?.toISOString().slice(0, 10)) ??
+                          ""
+                        : start?.toISOString().slice(0, 10) ?? ""
+                    }
                     onSaved={refreshAdjustments}
                     trigger={
                       <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition cursor-pointer">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
 
 interface Props {
   fixedItem: FixedItem;
+  fixedItemId?: string; // optional for backward compatibility
   forecastStart: string;
   onSaved?: () => void;
   trigger: React.ReactNode;
@@ -45,10 +47,12 @@ function getNextForecastStart(current: string): string | null {
 
 export default function FixedItemForecastModal({
   fixedItem,
+  fixedItemId,
   forecastStart,
   onSaved,
   trigger,
 }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [overrideAmount, setOverrideAmount] = useState<string>("");
   const [deferToNext, setDeferToNext] = useState(false);
@@ -56,11 +60,21 @@ export default function FixedItemForecastModal({
 
   useEffect(() => {
     if (!open) return;
+    // Use provided fixedItemId if present, else fallback to logic
+    let cleanedId: string;
+    if (fixedItemId) {
+      cleanedId = fixedItemId;
+    } else {
+      cleanedId =
+        typeof fixedItem.id === "string" && fixedItem.id.endsWith("-deferred")
+          ? fixedItem.id.replace("-deferred", "")
+          : fixedItem.id;
+    }
     supabase
       .from("forecast_adjustments")
       .select("override_amount, defer_to_start")
       .eq("forecast_start", forecastStart)
-      .eq("fixed_item_id", fixedItem.id)
+      .eq("fixed_item_id", cleanedId)
       .maybeSingle()
       .then(({ data, error }) => {
         if (error && error.code !== "PGRST116") {
@@ -80,7 +94,7 @@ export default function FixedItemForecastModal({
           setNotes("");
         }
       });
-  }, [open, forecastStart, fixedItem.id]);
+  }, [open, forecastStart, fixedItemId, fixedItem.id]);
 
   const nextForecastStart = useMemo(
     () => getNextForecastStart(forecastStart),
@@ -93,10 +107,25 @@ export default function FixedItemForecastModal({
     } = await supabase.auth.getUser();
     if (!user?.id) return;
 
+    // Use provided fixedItemId if present, else fallback to logic
+    let cleanedId: string;
+    if (fixedItemId) {
+      cleanedId = fixedItemId;
+    } else {
+      cleanedId =
+        typeof fixedItem.id === "string" && fixedItem.id.endsWith("-deferred")
+          ? fixedItem.id.replace("-deferred", "")
+          : fixedItem.id;
+    }
+
+    // Always use originalForecastStart if present (for deferred edits)
+    const upsertForecastStart =
+      fixedItem.originalForecastStart ?? forecastStart;
+
     const payload: AdjustmentPayload = {
       user_id: user.id,
-      fixed_item_id: fixedItem.id,
-      forecast_start: forecastStart,
+      fixed_item_id: cleanedId,
+      forecast_start: upsertForecastStart,
       override_amount: overrideAmount ? Number(overrideAmount) : null,
       defer_to_start: deferToNext ? nextForecastStart : null,
     };
@@ -105,10 +134,18 @@ export default function FixedItemForecastModal({
       .from("forecast_adjustments")
       .upsert(payload, { onConflict: "user_id,fixed_item_id,forecast_start" });
 
-    onSaved?.(); // Ensure this triggers refresh after saving
+    // Use Next.js router.refresh and toast
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const toast = require("react-hot-toast").toast;
+    toast.success("✅ Forecast adjustment saved. Refreshing...");
+    router.refresh();
+    if (onSaved) onSaved(); // Ensure this triggers refresh after saving
     setOpen(false);
   };
 
+  // Determine if the item is deferred for modal title/description
+  const isDeferred =
+    typeof fixedItem.id === "string" && fixedItem.id.endsWith("-deferred");
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -116,9 +153,12 @@ export default function FixedItemForecastModal({
         className="max-w-sm p-6"
         header={
           <DialogHeader>
-            <DialogTitle>Edit Fixed Item</DialogTitle>
+            <DialogTitle>
+              Edit Fixed Item{isDeferred ? " (Deferred)" : ""}
+            </DialogTitle>
             <DialogDescription>
-              Adjust amounts, deferment, or notes for this item.
+              Adjust amounts, deferment, or notes for this item
+              {isDeferred ? " (editing deferred override)" : ""}.
             </DialogDescription>
           </DialogHeader>
         }
