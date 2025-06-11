@@ -43,6 +43,32 @@ export default function PaycheckPage() {
   const [fixedItems, setFixedItems] = useState<FixedItem[]>([]);
   const [vaultItems, setVaultItems] = useState<FixedItem[]>([]);
 
+  // One-off items state
+  type OneOff = {
+    id?: string;
+    name?: string;
+    amount: number;
+    is_income?: boolean;
+    forecast_start: string | null;
+    [key: string]: any;
+  };
+  const [oneOffItems, setOneOffItems] = useState<OneOff[]>([]);
+
+  // Function to refresh one-off items for the current period
+  const refreshOneOffs = async () => {
+    if (!start) return;
+    const { data } = await supabase
+      .from("forecast_oneoffs")
+      .select("amount, is_income, forecast_start");
+
+    const included =
+      data?.filter((row) => {
+        return row.forecast_start === start?.toISOString().slice(0, 10);
+      }) || [];
+
+    setOneOffItems(included);
+  };
+
   // Removed vault count effect (no longer needed)
 
   // Helper to get all due dates for a fixed item (updated to check start_date)
@@ -63,23 +89,10 @@ export default function PaycheckPage() {
     if (frequency === "per paycheck") {
       return [new Date(`${selectedDate.adjustedDate}T12:00:00`)];
     }
-
-    // 🧠 Hit Date Check Triggered For:
-    console.log("🧠 Hit Date Check Triggered For:", {
-      name: item.name,
-      frequency: item.frequency,
-      due_days: item.due_days,
-      weekly_day: item.weekly_day,
-      start_date: item.start_date,
-      start: start.toISOString(),
-      end: end.toISOString(),
-    });
-
     // Additional log for monthly candidate date
     if (item.frequency === "monthly") {
       const monthDate = new Date(start);
       monthDate.setDate(parseInt(item.due_days?.[0] || "1"));
-      console.log("🧪 Monthly candidate date:", monthDate.toISOString());
     }
 
     return getIncomeHitDate(
@@ -211,8 +224,44 @@ export default function PaycheckPage() {
       .reduce((sum, amount) => sum + amount, 0);
   }, [vaultItems, selectedDate, start, end]);
 
+  // One-off income/expense totals
+  const oneOffExpenseTotal = useMemo(() => {
+    return oneOffItems
+      .filter((o) => !o.is_income)
+      .reduce((sum, o) => sum + o.amount, 0);
+  }, [oneOffItems]);
+  const oneOffIncomeTotal = useMemo(() => {
+    return oneOffItems
+      .filter((o) => o.is_income)
+      .reduce((sum, o) => sum + o.amount, 0);
+  }, [oneOffItems]);
   const unallocatedBalance =
-    incomeTotal - fixedExpensesTotal - vaultContributionsTotal;
+    incomeTotal +
+    oneOffIncomeTotal -
+    fixedExpensesTotal -
+    vaultContributionsTotal -
+    oneOffExpenseTotal;
+  // Load one-off items for the selected period
+  useEffect(() => {
+    if (!selectedDate || !start || !end) return;
+
+    supabase
+      .from("forecast_oneoffs")
+      .select("amount, is_income, forecast_start")
+      .then(({ data }) => {
+        if (!data) {
+          setOneOffItems([]);
+          return;
+        }
+
+        // Only include items where forecast_start matches the exact date string (YYYY-MM-DD)
+        const included = data.filter((row) => {
+          return row.forecast_start === start.toISOString().slice(0, 10);
+        });
+
+        setOneOffItems(included);
+      });
+  }, [selectedDate, start, end]);
 
   // Load income from income_sources for the selected period
   useEffect(() => {
@@ -305,24 +354,9 @@ export default function PaycheckPage() {
             const isVault =
               row.categories?.name?.trim().toLowerCase() === "vault";
             if (isVault) return false;
-
-            // 🧠 Hit Date Check Triggered For:
-            console.log("🧠 Hit Date Check Triggered For:", {
-              name: row.name,
-              frequency: row.frequency,
-              due_days: row.due_days,
-              weekly_day: row.weekly_day,
-              start_date: row.start_date,
-              start: periodStart.toISOString(),
-              end: periodEnd.toISOString(),
-            });
             if (row.frequency === "monthly") {
               const monthDate = new Date(periodStart);
               monthDate.setDate(parseInt(row.due_days?.[0] || "1"));
-              console.log(
-                "🧪 Monthly candidate date:",
-                monthDate.toISOString()
-              );
             }
 
             const starts = row.start_date ? new Date(row.start_date) : null;
@@ -344,16 +378,6 @@ export default function PaycheckPage() {
                 );
 
             const hits = isPerPaycheck || hitDates.length > 0;
-
-            console.log("🧾 Evaluating Fixed Item:", {
-              name: row.name,
-              isPerPaycheck,
-              start_date: starts,
-              periodStart,
-              periodEnd,
-              hitDates: hitDates.map((d: Date) => d.toISOString?.() ?? d),
-              include: (!starts || starts <= periodEnd) && hits,
-            });
 
             return (!starts || starts <= periodEnd) && hits;
           })
@@ -546,6 +570,7 @@ export default function PaycheckPage() {
         {selectedDate && (
           <OneOffSection
             forecastStart={start?.toISOString().slice(0, 10) ?? null}
+            onSaved={refreshOneOffs}
           />
         )}
 

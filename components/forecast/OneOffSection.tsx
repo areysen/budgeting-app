@@ -17,12 +17,14 @@ import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DateInput } from "@/components/ui/date";
 import type { Category, OneOff, Vault } from "@/types";
+import { formatDisplayDate } from "@/lib/utils/date/format";
 
 interface Props {
   forecastStart: string | null;
+  onSaved?: () => void;
 }
 
-export default function OneOffSection({ forecastStart }: Props) {
+export default function OneOffSection({ forecastStart, onSaved }: Props) {
   const [oneOffs, setOneOffs] = useState<OneOff[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -136,6 +138,7 @@ export default function OneOffSection({ forecastStart }: Props) {
       });
       setKeywordInput("");
       fetchOneOffs();
+      onSaved?.();
     } else {
       alert("Failed to add item");
     }
@@ -148,7 +151,7 @@ export default function OneOffSection({ forecastStart }: Props) {
         {forecastStart && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">➕ Add One-Off</Button>
+              <Button size="sm">+ Add One-Off</Button>
             </DialogTrigger>
             <DialogContent
               header={
@@ -215,42 +218,46 @@ export default function OneOffSection({ forecastStart }: Props) {
 
                 {/* Allocation Details */}
                 <div className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground font-semibold">
-                      Vault
-                    </label>
-                    <Select
-                      name="vault_id"
-                      value={formData.vault_id ?? ""}
-                      onChange={handleChange}
-                      className="w-full bg-card text-foreground border-border"
-                    >
-                      <option value="">None</option>
-                      {vaults.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground font-semibold">
-                      Category
-                    </label>
-                    <Select
-                      name="category_id"
-                      value={formData.category_id}
-                      onChange={handleChange}
-                      className="w-full bg-card text-foreground border-border"
-                    >
-                      <option value="">None</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
+                  {!formData.is_income && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground font-semibold">
+                          Vault
+                        </label>
+                        <Select
+                          name="vault_id"
+                          value={formData.vault_id ?? ""}
+                          onChange={handleChange}
+                          className="w-full bg-card text-foreground border-border"
+                        >
+                          <option value="">None</option>
+                          {vaults.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground font-semibold">
+                          Category
+                        </label>
+                        <Select
+                          name="category_id"
+                          value={formData.category_id}
+                          onChange={handleChange}
+                          className="w-full bg-card text-foreground border-border"
+                        >
+                          <option value="">None</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-foreground font-semibold">
                       Transaction Match Keywords
@@ -310,13 +317,21 @@ export default function OneOffSection({ forecastStart }: Props) {
         <p className="text-muted-foreground text-sm">No one-off items.</p>
       ) : (
         <ul className="ml-4 mt-2 list-disc text-sm">
-          {oneOffs.map((o) => (
-            <li key={o.id}>
-              {o.name} (${o.amount.toFixed(2)}){" "}
-              {o.is_income ? "[Income]" : "[Expense]"}
-              {o.notes ? ` — ${o.notes}` : ""}
-            </li>
-          ))}
+          {[...oneOffs]
+            .sort((a, b) => {
+              const aDate = new Date(a.date || a.forecast_start).getTime();
+              const bDate = new Date(b.date || b.forecast_start).getTime();
+              return aDate - bDate;
+            })
+            .map((o) => (
+              <li key={o.id}>
+                {o.name} (${o.amount.toFixed(2)}) —{" "}
+                {o.is_income ? "expected" : "due"}{" "}
+                {formatDisplayDate(o.date || o.forecast_start)}{" "}
+                {o.is_income ? "💰" : "💸"}
+                {o.notes ? ` — ${o.notes}` : ""}
+              </li>
+            ))}
         </ul>
       )}
     </section>
