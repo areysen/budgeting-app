@@ -21,6 +21,7 @@ interface Props {
   fixedItem: FixedItem;
   forecastStart: string;
   onSaved?: () => void;
+  trigger: React.ReactNode;
 }
 
 interface AdjustmentPayload {
@@ -41,10 +42,11 @@ function getNextForecastStart(current: string): string | null {
   return idx !== -1 && dates[idx + 1] ? dates[idx + 1].adjustedDate : null;
 }
 
-export default function FixedItemEditModal({
+export default function FixedItemForecastModal({
   fixedItem,
   forecastStart,
   onSaved,
+  trigger,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [overrideAmount, setOverrideAmount] = useState<string>("");
@@ -55,17 +57,22 @@ export default function FixedItemEditModal({
     if (!open) return;
     supabase
       .from("forecast_adjustments")
-      .select("override_amount, defer_to_start, notes")
+      .select("override_amount, defer_to_start")
       .eq("forecast_start", forecastStart)
       .eq("fixed_item_id", fixedItem.id)
-      .single()
-      .then(({ data }) => {
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error && error.code !== "PGRST116") {
+          console.error("Unexpected error:", error);
+          return;
+        }
+
         if (data) {
           setOverrideAmount(
             data.override_amount != null ? String(data.override_amount) : ""
           );
           setDeferToNext(Boolean(data.defer_to_start));
-          setNotes((data as { notes?: string | null }).notes ?? "");
+          setNotes("");
         } else {
           setOverrideAmount("");
           setDeferToNext(false);
@@ -92,23 +99,18 @@ export default function FixedItemEditModal({
       override_amount: overrideAmount ? Number(overrideAmount) : null,
       defer_to_start: deferToNext ? nextForecastStart : null,
     };
-    if (notes.trim()) payload.notes = notes.trim();
 
-    await supabase.from("forecast_adjustments").upsert(payload);
+    await supabase
+      .from("forecast_adjustments")
+      .upsert(payload, { onConflict: "user_id,fixed_item_id,forecast_start" });
+
+    onSaved?.(); // Ensure this triggers refresh after saving
     setOpen(false);
-    onSaved?.();
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button
-          className="text-xs text-primary underline ml-2"
-          aria-label="Edit fixed item"
-        >
-          ✏️
-        </button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent
         className="max-w-sm p-6"
         header={
@@ -122,7 +124,11 @@ export default function FixedItemEditModal({
             <label className="block text-sm font-medium text-foreground font-semibold">
               Name
             </label>
-            <Input readOnly value={fixedItem.name} className="bg-card text-foreground border-border" />
+            <Input
+              readOnly
+              value={fixedItem.name}
+              className="bg-muted text-muted-foreground border-border"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground font-semibold">
@@ -131,7 +137,7 @@ export default function FixedItemEditModal({
             <Input
               readOnly
               value={fixedItem.amount}
-              className="bg-card text-foreground border-border"
+              className="bg-muted text-muted-foreground border-border"
             />
           </div>
           <div>
@@ -170,7 +176,11 @@ export default function FixedItemEditModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="secondary" type="button" onClick={() => setOpen(false)}>
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={() => setOpen(false)}
+          >
             Cancel
           </Button>
           <Button onClick={handleSave}>Save</Button>
@@ -179,4 +189,3 @@ export default function FixedItemEditModal({
     </Dialog>
   );
 }
-

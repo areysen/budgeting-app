@@ -10,7 +10,7 @@ import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
 import { FixedItem } from "@/types";
 import OneOffSection from "@/components/forecast/OneOffSection";
 import { Skeleton } from "@/components/ui/skeleton";
-import FixedItemEditModal from "@/components/fixed-items/FixedItemEditModal";
+import FixedItemForecastModal from "@/components/forecast/FixedItemForecastModal";
 
 type PaycheckDate = {
   label: string;
@@ -43,7 +43,8 @@ export default function PaycheckPage() {
 
   const [fixedItems, setFixedItems] = useState<FixedItem[]>([]);
   const [vaultItems, setVaultItems] = useState<FixedItem[]>([]);
-
+  // Forecast adjustments state
+  const [adjustments, setAdjustments] = useState([]);
   // One-off items state
   type OneOff = {
     id?: string;
@@ -68,6 +69,16 @@ export default function PaycheckPage() {
       }) || [];
 
     setOneOffItems(included);
+  };
+
+  // Function to refresh forecast adjustments for the current period
+  const refreshAdjustments = async () => {
+    if (!start) return;
+    const { data } = await supabase
+      .from("forecast_adjustments")
+      .select("*")
+      .eq("forecast_start", start.toISOString().slice(0, 10));
+    setAdjustments(data ?? []);
   };
 
   // Removed vault count effect (no longer needed)
@@ -161,6 +172,17 @@ export default function PaycheckPage() {
     return getPaycheckRange(selectedDate, nextPaycheck);
   }, [selectedDate, nextPaycheck]);
 
+  // Load forecast adjustments for the current period
+  useEffect(() => {
+    if (!start || !selectedDate) return;
+
+    supabase
+      .from("forecast_adjustments")
+      .select("*")
+      .eq("forecast_start", start.toISOString().slice(0, 10))
+      .then(({ data }) => setAdjustments(data ?? []));
+  }, [start, selectedDate]);
+
   const incomeBreakdown = useMemo(() => {
     if (!selectedDate || !start || !end) return [];
     return incomeSources
@@ -208,22 +230,42 @@ export default function PaycheckPage() {
   const fixedExpensesTotal = useMemo(() => {
     return fixedItems
       .flatMap((item) => {
+        // Skip if deferred
+        const skip = adjustments.some(
+          (a) => a.fixed_item_id === item.id && a.defer_to_start !== null
+        );
+        if (skip) return [];
+
         const hitDates = getDueDatesForItem(item, selectedDate, start, end);
-        return hitDates.map(() => item.amount);
+        const adjustedAmount =
+          adjustments.find((a) => a.fixed_item_id === item.id)
+            ?.override_amount ?? item.amount;
+
+        return hitDates.map(() => adjustedAmount);
       })
       .reduce((sum, amount) => sum + amount, 0);
-  }, [fixedItems, selectedDate, start, end]);
+  }, [fixedItems, selectedDate, start, end, adjustments]);
 
   const vaultContributionsTotal = useMemo(() => {
     return vaultItems
       .flatMap((item) => {
         const starts = item.start_date ? new Date(item.start_date) : null;
         if (starts && starts > end) return [];
+
+        const skip = adjustments.some(
+          (a) => a.fixed_item_id === item.id && a.defer_to_start !== null
+        );
+        if (skip) return [];
+
         const hitDates = getDueDatesForItem(item, selectedDate, start, end);
-        return hitDates.map(() => item.amount);
+        const adjustedAmount =
+          adjustments.find((a) => a.fixed_item_id === item.id)
+            ?.override_amount ?? item.amount;
+
+        return hitDates.map(() => adjustedAmount);
       })
       .reduce((sum, amount) => sum + amount, 0);
-  }, [vaultItems, selectedDate, start, end]);
+  }, [vaultItems, selectedDate, start, end, adjustments]);
 
   // One-off income/expense totals
   const oneOffExpenseTotal = useMemo(() => {
@@ -465,9 +507,11 @@ export default function PaycheckPage() {
         </section>
 
         <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">
-            Fixed Expenses
-          </h2>
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-lg font-semibold text-foreground">
+              Fixed Expenses
+            </h2>
+          </div>
           {isLoadingFixedItems ? (
             <div className="space-y-2">
               <Skeleton className="h-4 w-1/2" />
@@ -475,18 +519,29 @@ export default function PaycheckPage() {
               <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
-            <ul className="ml-4 mt-2 list-disc text-sm">
+            <div className="space-y-2">
               {[...fixedItems]
                 .flatMap((item) => {
+                  // Skip if an adjustment for this item defers it to another period
+                  const skip = adjustments.some(
+                    (a) =>
+                      a.fixed_item_id === item.id && a.defer_to_start !== null
+                  );
+                  if (skip) return [];
                   const hitDates = getDueDatesForItem(
                     item,
                     selectedDate,
                     start,
                     end
                   );
+                  // Use adjusted amount if present
+                  const adjustedAmount =
+                    adjustments.find((a) => a.fixed_item_id === item.id)
+                      ?.override_amount ?? item.amount;
                   return hitDates.map((hitDate) => ({
                     ...item,
                     displayDate: hitDate,
+                    adjustedAmount,
                   }));
                 })
                 .sort((a, b) => {
@@ -501,31 +556,40 @@ export default function PaycheckPage() {
                   return aDate.getTime() - bDate.getTime();
                 })
                 .map((item, index) => (
-                  <li key={`${item.id}-${index}`} className="flex items-center gap-2">
-                    <span>
-                      {item.name} (${item.amount.toFixed(2)})
-                      {item.displayDate
-                        ? ` — due ${formatDisplayDate(
-                            new Date(item.displayDate).toISOString()
-                          )}`
-                        : ""}
-                    </span>
-                    {start && (
-                      <FixedItemEditModal
-                        fixedItem={item as FixedItem}
-                        forecastStart={start.toISOString().slice(0, 10)}
-                      />
-                    )}
-                  </li>
+                  <FixedItemForecastModal
+                    key={`${item.id}-${index}`}
+                    fixedItem={item}
+                    forecastStart={start?.toISOString().slice(0, 10) ?? ""}
+                    onSaved={refreshAdjustments}
+                    trigger={
+                      <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition cursor-pointer">
+                        <div className="text-sm font-medium text-foreground">
+                          {item.name}
+                        </div>
+                        <div className="text-right text-sm text-muted-foreground">
+                          <div>${item.adjustedAmount.toFixed(2)}</div>
+                          <div>
+                            {item.displayDate
+                              ? `Due ${formatDisplayDate(
+                                  new Date(item.displayDate).toISOString()
+                                )}`
+                              : ""}
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  />
                 ))}
-            </ul>
+            </div>
           )}
         </section>
 
         <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">
-            Vault Contributions
-          </h2>
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-lg font-semibold text-foreground">
+              Vault Contributions
+            </h2>
+          </div>
           {!selectedDate ? (
             <div className="space-y-2">
               <Skeleton className="h-4 w-1/2" />
@@ -533,22 +597,33 @@ export default function PaycheckPage() {
               <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
-            <ul className="ml-4 mt-2 list-disc text-sm">
+            <div className="space-y-2">
               {[...vaultItems]
                 .flatMap((item) => {
                   const starts = item.start_date
                     ? new Date(item.start_date)
                     : null;
                   if (starts && starts > end) return [];
+                  // Skip if an adjustment for this item defers it to another period
+                  const skip = adjustments.some(
+                    (a) =>
+                      a.fixed_item_id === item.id && a.defer_to_start !== null
+                  );
+                  if (skip) return [];
                   const hitDates = getDueDatesForItem(
                     item,
                     selectedDate,
                     start,
                     end
                   );
+                  // Use adjusted amount if present
+                  const adjustedAmount =
+                    adjustments.find((a) => a.fixed_item_id === item.id)
+                      ?.override_amount ?? item.amount;
                   return hitDates.map((hitDate) => ({
                     ...item,
                     displayDate: hitDate,
+                    adjustedAmount,
                   }));
                 })
                 .sort((a, b) => {
@@ -563,16 +638,31 @@ export default function PaycheckPage() {
                   return aDate.getTime() - bDate.getTime();
                 })
                 .map((item, index) => (
-                  <li key={`${item.id}-${index}`}>
-                    {item.name} (${item.amount.toFixed(2)})
-                    {item.displayDate
-                      ? ` — due ${formatDisplayDate(
-                          new Date(item.displayDate).toISOString()
-                        )}`
-                      : ""}
-                  </li>
+                  <FixedItemForecastModal
+                    key={`${item.id}-${index}`}
+                    fixedItem={item}
+                    forecastStart={start?.toISOString().slice(0, 10) ?? ""}
+                    onSaved={refreshAdjustments}
+                    trigger={
+                      <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition cursor-pointer">
+                        <div className="text-sm font-medium text-foreground">
+                          {item.name}
+                        </div>
+                        <div className="text-right text-sm text-muted-foreground">
+                          <div>${item.adjustedAmount.toFixed(2)}</div>
+                          <div>
+                            {item.displayDate
+                              ? `Due ${formatDisplayDate(
+                                  new Date(item.displayDate).toISOString()
+                                )}`
+                              : ""}
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  />
                 ))}
-            </ul>
+            </div>
           )}
         </section>
 
@@ -594,7 +684,15 @@ export default function PaycheckPage() {
               <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">
+            <div
+              className={`text-2xl font-bold ${
+                unallocatedBalance > 0
+                  ? "text-green-600"
+                  : unallocatedBalance < 0
+                  ? "text-red-600"
+                  : "text-yellow-500"
+              }`}
+            >
               ${unallocatedBalance.toFixed(2)} available
             </div>
           )}
