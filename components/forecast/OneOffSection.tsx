@@ -15,7 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Category, OneOff } from "@/types";
+import { DateInput } from "@/components/ui/date";
+import type { Category, OneOff, Vault } from "@/types";
 
 interface Props {
   forecastStart: string | null;
@@ -26,13 +27,27 @@ export default function OneOffSection({ forecastStart }: Props) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [vaults, setVaults] = useState<Vault[]>([]);
+  const [keywordInput, setKeywordInput] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     amount: 0,
     is_income: false,
     notes: "",
     category_id: "",
+    vault_id: null as string | null,
+    date: null as string | null,
+    transaction_match_keywords: [] as string[],
   });
+
+  useEffect(() => {
+    supabase
+      .from("vaults")
+      .select("id, name")
+      .then(({ data }) => {
+        if (data) setVaults(data);
+      });
+  }, []);
 
   useEffect(() => {
     supabase
@@ -53,7 +68,9 @@ export default function OneOffSection({ forecastStart }: Props) {
     setLoading(true);
     const { data } = await supabase
       .from("forecast_oneoffs")
-      .select("*")
+      .select(
+        "id, name, amount, is_income, forecast_start, category_id, vault_id, date, transaction_match_keywords, notes"
+      )
       .eq("forecast_start", forecastStart);
     setOneOffs((data as OneOff[]) || []);
     setLoading(false);
@@ -85,6 +102,10 @@ export default function OneOffSection({ forecastStart }: Props) {
       alert("User not found. Please log in again.");
       return;
     }
+    const parsedKeywords = keywordInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     const { error } = await supabase.from("forecast_oneoffs").insert([
       {
         name: formData.name.trim(),
@@ -93,6 +114,10 @@ export default function OneOffSection({ forecastStart }: Props) {
         notes: formData.notes.trim() || null,
         forecast_start: forecastStart,
         category_id: formData.category_id || null,
+        vault_id: formData.vault_id || null,
+        date: formData.date || null,
+        transaction_match_keywords:
+          parsedKeywords.length > 0 ? parsedKeywords : null,
         user_id: user?.id,
       },
     ]);
@@ -105,7 +130,11 @@ export default function OneOffSection({ forecastStart }: Props) {
         is_income: false,
         notes: "",
         category_id: "",
+        vault_id: null,
+        date: null,
+        transaction_match_keywords: [],
       });
+      setKeywordInput("");
       fetchOneOffs();
     } else {
       alert("Failed to add item");
@@ -128,76 +157,138 @@ export default function OneOffSection({ forecastStart }: Props) {
                 </DialogHeader>
               }
             >
-              <form onSubmit={handleAdd} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground font-semibold">
-                    Name
-                  </label>
-                  <Input
-                    autoFocus
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    className="bg-card text-foreground border-border"
-                  />
+              <form onSubmit={handleAdd} className="space-y-6">
+                {/* Basic Info */}
+                <div className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground font-semibold">
+                      Name
+                    </label>
+                    <Input
+                      autoFocus
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                      className="bg-card text-foreground border-border"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground font-semibold">
+                      Amount
+                    </label>
+                    <Input
+                      type="number"
+                      name="amount"
+                      value={formData.amount}
+                      onChange={handleChange}
+                      required
+                      className="bg-card text-foreground border-border"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground font-semibold">
+                      Date
+                    </label>
+                    <DateInput
+                      name="date"
+                      value={formData.date ?? ""}
+                      onChange={handleChange}
+                      className="bg-card text-foreground border-border"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_income"
+                      name="is_income"
+                      checked={formData.is_income}
+                      onChange={handleChange}
+                    />
+                    <label
+                      htmlFor="is_income"
+                      className="text-sm text-foreground font-semibold"
+                    >
+                      Income Item?
+                    </label>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground font-semibold">
-                    Amount
-                  </label>
-                  <Input
-                    type="number"
-                    name="amount"
-                    value={formData.amount}
-                    onChange={handleChange}
-                    required
-                    className="bg-card text-foreground border-border"
-                  />
+
+                {/* Allocation Details */}
+                <div className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground font-semibold">
+                      Vault
+                    </label>
+                    <Select
+                      name="vault_id"
+                      value={formData.vault_id ?? ""}
+                      onChange={handleChange}
+                      className="w-full bg-card text-foreground border-border"
+                    >
+                      <option value="">None</option>
+                      {vaults.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground font-semibold">
+                      Category
+                    </label>
+                    <Select
+                      name="category_id"
+                      value={formData.category_id}
+                      onChange={handleChange}
+                      className="w-full bg-card text-foreground border-border"
+                    >
+                      <option value="">None</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground font-semibold">
+                      Transaction Match Keywords
+                    </label>
+                    <Input
+                      name="transaction_match_keywords"
+                      value={keywordInput}
+                      onChange={(e) => setKeywordInput(e.target.value)}
+                      onBlur={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          transaction_match_keywords: keywordInput
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        }))
+                      }
+                      placeholder="e.g. vet, petco"
+                      className="bg-card text-foreground border-border"
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_income"
-                    name="is_income"
-                    checked={formData.is_income}
-                    onChange={handleChange}
-                  />
-                  <label
-                    htmlFor="is_income"
-                    className="text-sm text-foreground font-semibold"
-                  >
-                    Income Item?
-                  </label>
+
+                {/* Notes */}
+                <div className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground font-semibold">
+                      Notes
+                    </label>
+                    <Textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleChange}
+                      className="bg-card text-foreground border-border"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground font-semibold">
-                    Category
-                  </label>
-                  <Select
-                    name="category_id"
-                    value={formData.category_id}
-                    onChange={handleChange}
-                    className="w-full bg-card text-foreground border-border"
-                  >
-                    <option value="">None</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground font-semibold">
-                    Notes
-                  </label>
-                  <Textarea
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleChange}
-                    className="bg-card text-foreground border-border"
-                  />
-                </div>
+
                 <DialogFooter>
                   <Button
                     type="button"
