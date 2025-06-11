@@ -160,12 +160,33 @@ export default function OneOffSection({ forecastStart, onSaved }: Props) {
         {forecastStart && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">+ Add One-Off</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingId(null);
+                  setFormData({
+                    name: "",
+                    amount: 0,
+                    is_income: false,
+                    notes: "",
+                    category_id: "",
+                    vault_id: null,
+                    date: null,
+                    transaction_match_keywords: [],
+                  });
+                  setKeywordInput("");
+                  setDialogOpen(true);
+                }}
+              >
+                + Add One-Off
+              </Button>
             </DialogTrigger>
             <DialogContent
               header={
                 <DialogHeader>
-                  <DialogTitle>Add One-Off Item</DialogTitle>
+                  <DialogTitle>
+                    {editingId ? "Edit One-Off Item" : "Add One-Off Item"}
+                  </DialogTitle>
                   <DialogDescription>
                     Provide details for a single income or expense item.
                   </DialogDescription>
