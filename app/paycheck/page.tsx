@@ -8,6 +8,7 @@ import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
 import { getPaycheckRange, getIncomeHitDate } from "@/lib/utils/date/paycheck";
 import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
 import { FixedItem } from "@/types";
+import OneOffSection from "@/components/forecast/OneOffSection";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type PaycheckDate = {
@@ -541,6 +542,12 @@ export default function PaycheckPage() {
             </ul>
           )}
         </section>
+
+        {selectedDate && (
+          <OneOffSection
+            forecastStart={start?.toISOString().slice(0, 10) ?? null}
+          />
+        )}
 
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
           <h2 className="text-lg font-semibold text-foreground mb-2">
