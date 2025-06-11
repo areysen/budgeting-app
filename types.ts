@@ -78,3 +78,9 @@ export interface PlaidTransaction {
   iso_currency_code: string | null;
   pending: boolean;
 }
+
+export type Deferral = {
+  id: string;
+  paycheck_id: string;
+  fixed_item_id: string;
+};

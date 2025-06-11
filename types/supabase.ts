@@ -447,6 +447,42 @@ export type Database = {
           }
         ];
       };
+      deferrals: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          fixed_item_id: string;
+          paycheck_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          fixed_item_id: string;
+          paycheck_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          fixed_item_id?: string;
+          paycheck_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "deferrals_fixed_item_id_fkey";
+            columns: ["fixed_item_id"];
+            isOneToOne: false;
+            referencedRelation: "fixed_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "deferrals_paycheck_id_fkey";
+            columns: ["paycheck_id"];
+            isOneToOne: false;
+            referencedRelation: "paychecks";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       vaults: {
         Row: {
           created_at: string | null;

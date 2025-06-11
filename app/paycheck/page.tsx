@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
 import { getPaycheckRange, getIncomeHitDate } from "@/lib/utils/date/paycheck";
 import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
-import { FixedItem } from "@/types";
+import { FixedItem, Deferral } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type PaycheckDate = {
@@ -39,8 +39,10 @@ export default function PaycheckPage() {
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
 
-  const [fixedItems, setFixedItems] = useState<FixedItem[]>([]);
-  const [vaultItems, setVaultItems] = useState<FixedItem[]>([]);
+  const [fixedItems, setFixedItems] = useState<(FixedItem & { deferred?: boolean; carriedOver?: boolean })[]>([]);
+  const [vaultItems, setVaultItems] = useState<(FixedItem & { deferred?: boolean; carriedOver?: boolean })[]>([]);
+  const [currentDeferrals, setCurrentDeferrals] = useState<Deferral[]>([]);
+  const [prevDeferrals, setPrevDeferrals] = useState<Deferral[]>([]);
 
   // Removed vault count effect (no longer needed)
 
@@ -123,12 +125,33 @@ export default function PaycheckPage() {
     setSelectedDate(found);
   };
 
+  const handleToggleDeferral = async (itemId: string, isDeferred: boolean) => {
+    if (!selectedDate) return;
+    if (isDeferred) {
+      await supabase
+        .from("deferrals")
+        .delete()
+        .match({ paycheck_id: selectedDate.officialDate, fixed_item_id: itemId });
+    } else {
+      await supabase
+        .from("deferrals")
+        .insert([{ paycheck_id: selectedDate.officialDate, fixed_item_id: itemId }]);
+    }
+    const { data } = await supabase
+      .from("deferrals")
+      .select("id, fixed_item_id, paycheck_id")
+      .eq("paycheck_id", selectedDate.officialDate);
+    setCurrentDeferrals(data ?? []);
+  };
+
   // Compute current and next paycheck range and formatted label
   const currentIndex = paycheckDates.findIndex(
     (p) => p.officialDate === selectedDate?.officialDate
   );
   let nextPaycheck =
     currentIndex !== -1 ? paycheckDates[currentIndex + 1] : undefined;
+  const prevPaycheck =
+    currentIndex > 0 ? paycheckDates[currentIndex - 1] : undefined;
 
   // Defensive fix: If selectedDate is a Month EOM, and nextPaycheck is also EOM (or not the 15th),
   // look ahead for the *true* next paycheck (which should be the 15th of the following month)
@@ -140,6 +163,28 @@ export default function PaycheckPage() {
   ) {
     nextPaycheck = paycheckDates[currentIndex + 2];
   }
+
+  // Load deferrals for the current and previous paycheck
+  useEffect(() => {
+    if (!selectedDate) return;
+    async function fetchDeferrals() {
+      const { data: curr } = await supabase
+        .from("deferrals")
+        .select("id, fixed_item_id, paycheck_id")
+        .eq("paycheck_id", selectedDate.officialDate);
+      setCurrentDeferrals(curr ?? []);
+      if (prevPaycheck) {
+        const { data: prev } = await supabase
+          .from("deferrals")
+          .select("id, fixed_item_id, paycheck_id")
+          .eq("paycheck_id", prevPaycheck.officialDate);
+        setPrevDeferrals(prev ?? []);
+      } else {
+        setPrevDeferrals([]);
+      }
+    }
+    fetchDeferrals();
+  }, [selectedDate, prevPaycheck]);
 
   const { start, end } = useMemo(() => {
     if (!selectedDate) return { start: null, end: null };
@@ -192,15 +237,17 @@ export default function PaycheckPage() {
 
   const fixedExpensesTotal = useMemo(() => {
     return fixedItems
+      .filter((item) => !currentDeferrals.some((d) => d.fixed_item_id === item.id))
       .flatMap((item) => {
         const hitDates = getDueDatesForItem(item, selectedDate, start, end);
         return hitDates.map(() => item.amount);
       })
       .reduce((sum, amount) => sum + amount, 0);
-  }, [fixedItems, selectedDate, start, end]);
+  }, [fixedItems, selectedDate, start, end, currentDeferrals]);
 
   const vaultContributionsTotal = useMemo(() => {
     return vaultItems
+      .filter((item) => !currentDeferrals.some((d) => d.fixed_item_id === item.id))
       .flatMap((item) => {
         const starts = item.start_date ? new Date(item.start_date) : null;
         if (starts && starts > end) return [];
@@ -208,7 +255,7 @@ export default function PaycheckPage() {
         return hitDates.map(() => item.amount);
       })
       .reduce((sum, amount) => sum + amount, 0);
-  }, [vaultItems, selectedDate, start, end]);
+  }, [vaultItems, selectedDate, start, end, currentDeferrals]);
 
   const unallocatedBalance =
     incomeTotal - fixedExpensesTotal - vaultContributionsTotal;
@@ -270,7 +317,7 @@ export default function PaycheckPage() {
         );
         setIsLoadingIncome(false);
       });
-  }, [selectedDate, start, end, nextPaycheck]);
+  }, [selectedDate, start, end, nextPaycheck, currentDeferrals, prevDeferrals]);
 
   useEffect(() => {
     if (!selectedDate || !start || !end) return;
@@ -294,9 +341,13 @@ export default function PaycheckPage() {
         const normalizedItems = data.map(normalizeFixedItem);
 
         // Vault contributions: filter by related category name "vault"
-        const vaultContributions = normalizedItems.filter(
-          (row) => row.categories?.name?.trim().toLowerCase() === "vault"
-        );
+        const vaultContributions = normalizedItems
+          .filter((row) => row.categories?.name?.trim().toLowerCase() === "vault")
+          .map((row) => ({
+            ...row,
+            deferred: currentDeferrals.some((d) => d.fixed_item_id === row.id),
+            carriedOver: prevDeferrals.some((d) => d.fixed_item_id === row.id),
+          }));
 
         // Fixed Expenses: exclude items with related category name "vault"
         const items = normalizedItems
@@ -354,8 +405,14 @@ export default function PaycheckPage() {
               include: (!starts || starts <= periodEnd) && hits,
             });
 
-            return (!starts || starts <= periodEnd) && hits;
+            const include = (!starts || starts <= periodEnd) && (hits || prevDeferrals.some((d) => d.fixed_item_id === row.id));
+            return include;
           })
+          .map((row) => ({
+            ...row,
+            deferred: currentDeferrals.some((d) => d.fixed_item_id === row.id),
+            carriedOver: prevDeferrals.some((d) => d.fixed_item_id === row.id),
+          }))
           .sort(
             (a, b) =>
               new Date(a.start_date ?? "1970-01-01").getTime() -
@@ -449,7 +506,7 @@ export default function PaycheckPage() {
               <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
-            <ul className="ml-4 mt-2 list-disc text-sm">
+            <ul className="ml-4 mt-2 list-disc text-sm space-y-1">
               {[...fixedItems]
                 .flatMap((item) => {
                   const hitDates = getDueDatesForItem(
@@ -458,6 +515,9 @@ export default function PaycheckPage() {
                     start,
                     end
                   );
+                  if (hitDates.length === 0 && (item as any).carriedOver) {
+                    return [{ ...item, displayDate: start }];
+                  }
                   return hitDates.map((hitDate) => ({
                     ...item,
                     displayDate: hitDate,
@@ -475,13 +535,29 @@ export default function PaycheckPage() {
                   return aDate.getTime() - bDate.getTime();
                 })
                 .map((item, index) => (
-                  <li key={`${item.id}-${index}`}>
-                    {item.name} (${item.amount.toFixed(2)})
-                    {item.displayDate
-                      ? ` — due ${formatDisplayDate(
-                          new Date(item.displayDate).toISOString()
-                        )}`
-                      : ""}
+                  <li key={`${item.id}-${index}`} className="flex justify-between gap-2">
+                    <span>
+                      {item.name} (${item.amount.toFixed(2)})
+                      {item.displayDate
+                        ? ` — due ${formatDisplayDate(
+                            new Date(item.displayDate).toISOString()
+                          )}`
+                        : ""}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      {(item as any).carriedOver && (
+                        <span className="text-xs text-emerald-600">Carried Over</span>
+                      )}
+                      {(item as any).deferred && (
+                        <span className="text-xs text-orange-600">Deferred ⏩</span>
+                      )}
+                      <button
+                        onClick={() => handleToggleDeferral(item.id, (item as any).deferred)}
+                        className="text-xs text-blue-500 underline"
+                      >
+                        {(item as any).deferred ? "Undo Deferral" : "Defer to Next Paycheck"}
+                      </button>
+                    </span>
                   </li>
                 ))}
             </ul>
@@ -499,12 +575,10 @@ export default function PaycheckPage() {
               <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
-            <ul className="ml-4 mt-2 list-disc text-sm">
+            <ul className="ml-4 mt-2 list-disc text-sm space-y-1">
               {[...vaultItems]
                 .flatMap((item) => {
-                  const starts = item.start_date
-                    ? new Date(item.start_date)
-                    : null;
+                  const starts = item.start_date ? new Date(item.start_date) : null;
                   if (starts && starts > end) return [];
                   const hitDates = getDueDatesForItem(
                     item,
@@ -512,6 +586,9 @@ export default function PaycheckPage() {
                     start,
                     end
                   );
+                  if (hitDates.length === 0 && (item as any).carriedOver) {
+                    return [{ ...item, displayDate: start }];
+                  }
                   return hitDates.map((hitDate) => ({
                     ...item,
                     displayDate: hitDate,
@@ -529,13 +606,29 @@ export default function PaycheckPage() {
                   return aDate.getTime() - bDate.getTime();
                 })
                 .map((item, index) => (
-                  <li key={`${item.id}-${index}`}>
-                    {item.name} (${item.amount.toFixed(2)})
-                    {item.displayDate
-                      ? ` — due ${formatDisplayDate(
-                          new Date(item.displayDate).toISOString()
-                        )}`
-                      : ""}
+                  <li key={`${item.id}-${index}`} className="flex justify-between gap-2">
+                    <span>
+                      {item.name} (${item.amount.toFixed(2)})
+                      {item.displayDate
+                        ? ` — due ${formatDisplayDate(
+                            new Date(item.displayDate).toISOString()
+                          )}`
+                        : ""}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      {(item as any).carriedOver && (
+                        <span className="text-xs text-emerald-600">Carried Over</span>
+                      )}
+                      {(item as any).deferred && (
+                        <span className="text-xs text-orange-600">Deferred ⏩</span>
+                      )}
+                      <button
+                        onClick={() => handleToggleDeferral(item.id, (item as any).deferred)}
+                        className="text-xs text-blue-500 underline"
+                      >
+                        {(item as any).deferred ? "Undo Deferral" : "Defer to Next Paycheck"}
+                      </button>
+                    </span>
                   </li>
                 ))}
             </ul>
