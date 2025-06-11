@@ -41,6 +41,9 @@ export default function OneOffSection({ forecastStart, onSaved }: Props) {
     date: null as string | null,
     transaction_match_keywords: [] as string[],
   });
+  // --- Inline edit/delete state ---
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -97,6 +100,7 @@ export default function OneOffSection({ forecastStart, onSaved }: Props) {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forecastStart) return;
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -104,25 +108,28 @@ export default function OneOffSection({ forecastStart, onSaved }: Props) {
       alert("User not found. Please log in again.");
       return;
     }
+
     const parsedKeywords = keywordInput
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const { error } = await supabase.from("forecast_oneoffs").insert([
-      {
-        name: formData.name.trim(),
-        amount: Number(formData.amount),
-        is_income: formData.is_income,
-        notes: formData.notes.trim() || null,
-        forecast_start: forecastStart,
-        category_id: formData.category_id || null,
-        vault_id: formData.vault_id || null,
-        date: formData.date || null,
-        transaction_match_keywords:
-          parsedKeywords.length > 0 ? parsedKeywords : null,
-        user_id: user?.id,
-      },
-    ]);
+
+    const newItem = {
+      ...(editingId ? { id: editingId } : {}),
+      name: formData.name.trim(),
+      amount: Number(formData.amount),
+      is_income: formData.is_income,
+      notes: formData.notes.trim() || null,
+      forecast_start: forecastStart,
+      category_id: formData.category_id || null,
+      vault_id: formData.vault_id || null,
+      date: formData.date || null,
+      transaction_match_keywords:
+        parsedKeywords.length > 0 ? parsedKeywords : null,
+      user_id: user.id,
+    };
+
+    const { error } = await supabase.from("forecast_oneoffs").upsert([newItem]);
 
     if (!error) {
       setDialogOpen(false);
@@ -137,10 +144,11 @@ export default function OneOffSection({ forecastStart, onSaved }: Props) {
         transaction_match_keywords: [],
       });
       setKeywordInput("");
+      setEditingId(null);
       fetchOneOffs();
       onSaved?.();
     } else {
-      alert("Failed to add item");
+      alert("Failed to save item");
     }
   };
 
@@ -316,7 +324,7 @@ export default function OneOffSection({ forecastStart, onSaved }: Props) {
       ) : oneOffs.length === 0 ? (
         <p className="text-muted-foreground text-sm">No one-off items.</p>
       ) : (
-        <ul className="ml-4 mt-2 list-disc text-sm">
+        <div className="space-y-2">
           {[...oneOffs]
             .sort((a, b) => {
               const aDate = new Date(a.date || a.forecast_start).getTime();
@@ -324,15 +332,88 @@ export default function OneOffSection({ forecastStart, onSaved }: Props) {
               return aDate - bDate;
             })
             .map((o) => (
-              <li key={o.id}>
-                {o.name} (${o.amount.toFixed(2)}) —{" "}
-                {o.is_income ? "expected" : "due"}{" "}
-                {formatDisplayDate(o.date || o.forecast_start)}{" "}
-                {o.is_income ? "💰" : "💸"}
-                {o.notes ? ` — ${o.notes}` : ""}
-              </li>
+              <div
+                key={o.id}
+                className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition"
+              >
+                <div className="text-sm font-medium text-foreground">
+                  {o.name}
+                </div>
+                <div className="text-right text-sm text-muted-foreground">
+                  <div className="flex items-center gap-3">
+                    <span className="text-base font-medium">
+                      ${o.amount.toFixed(2)} {o.is_income ? "💰" : "💸"}
+                    </span>
+                    <button
+                      className="w-8 h-8 flex items-center justify-center text-sm text-blue-600 bg-muted rounded-full hover:bg-blue-100"
+                      onClick={() => {
+                        setFormData({
+                          name: o.name,
+                          amount: o.amount,
+                          is_income: o.is_income,
+                          notes: o.notes ?? "",
+                          category_id: o.category_id ?? "",
+                          vault_id: o.vault_id ?? null,
+                          date: o.date ?? null,
+                          transaction_match_keywords:
+                            o.transaction_match_keywords ?? [],
+                        });
+                        setKeywordInput(
+                          o.transaction_match_keywords?.join(", ") ?? ""
+                        );
+                        setEditingId(o.id ?? null);
+                        setDialogOpen(true);
+                      }}
+                      title="Edit"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      className="w-8 h-8 flex items-center justify-center text-sm text-red-600 bg-muted rounded-full hover:bg-red-100"
+                      onClick={() => setConfirmDeleteId(o.id ?? null)}
+                      title="Delete"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                  <div>
+                    {(o.date || o.forecast_start) &&
+                      `${o.is_income ? "Expected" : "Due"} ${formatDisplayDate(
+                        o.date || o.forecast_start
+                      )}`}
+                  </div>
+                </div>
+              </div>
             ))}
-        </ul>
+        </div>
+      )}
+      {/* Delete confirmation UI */}
+      {confirmDeleteId && (
+        <div className="text-sm text-center mt-4">
+          <p>Are you sure you want to delete this item?</p>
+          <div className="flex justify-center gap-4 mt-2">
+            <button
+              className="text-red-600 font-semibold"
+              onClick={async () => {
+                await supabase
+                  .from("forecast_oneoffs")
+                  .delete()
+                  .eq("id", confirmDeleteId);
+                setConfirmDeleteId(null);
+                fetchOneOffs();
+                onSaved?.();
+              }}
+            >
+              Yes, Delete
+            </button>
+            <button
+              className="text-muted-foreground"
+              onClick={() => setConfirmDeleteId(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </section>
   );
