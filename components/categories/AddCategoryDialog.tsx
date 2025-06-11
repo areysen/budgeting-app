@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,9 @@ export default function AddCategoryDialog({ open, onClose, onCreated }: Props) {
         header={
           <DialogHeader>
             <DialogTitle>Add New Category</DialogTitle>
+            <DialogDescription>
+              Enter a name for the new category.
+            </DialogDescription>
           </DialogHeader>
         }
       >
