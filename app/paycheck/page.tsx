@@ -10,6 +10,7 @@ import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
 import { FixedItem } from "@/types";
 import OneOffSection from "@/components/forecast/OneOffSection";
 import { Skeleton } from "@/components/ui/skeleton";
+import FixedItemEditModal from "@/components/fixed-items/FixedItemEditModal";
 
 type PaycheckDate = {
   label: string;
@@ -500,13 +501,21 @@ export default function PaycheckPage() {
                   return aDate.getTime() - bDate.getTime();
                 })
                 .map((item, index) => (
-                  <li key={`${item.id}-${index}`}>
-                    {item.name} (${item.amount.toFixed(2)})
-                    {item.displayDate
-                      ? ` — due ${formatDisplayDate(
-                          new Date(item.displayDate).toISOString()
-                        )}`
-                      : ""}
+                  <li key={`${item.id}-${index}`} className="flex items-center gap-2">
+                    <span>
+                      {item.name} (${item.amount.toFixed(2)})
+                      {item.displayDate
+                        ? ` — due ${formatDisplayDate(
+                            new Date(item.displayDate).toISOString()
+                          )}`
+                        : ""}
+                    </span>
+                    {start && (
+                      <FixedItemEditModal
+                        fixedItem={item as FixedItem}
+                        forecastStart={start.toISOString().slice(0, 10)}
+                      />
+                    )}
                   </li>
                 ))}
             </ul>
