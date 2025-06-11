@@ -522,6 +522,9 @@ export type Database = {
           amount: number;
           is_income: boolean;
           category_id: string | null;
+          vault_id: string | null;
+          date: string | null;
+          transaction_match_keywords: string[] | null;
           forecast_start: string;
           notes: string | null;
           created_at: string;
@@ -533,6 +536,9 @@ export type Database = {
           amount: number;
           is_income?: boolean;
           category_id?: string | null;
+          vault_id?: string | null;
+          date?: string | null;
+          transaction_match_keywords?: string[] | null;
           forecast_start: string;
           notes?: string | null;
           created_at?: string;
@@ -544,6 +550,9 @@ export type Database = {
           amount?: number;
           is_income?: boolean;
           category_id?: string | null;
+          vault_id?: string | null;
+          date?: string | null;
+          transaction_match_keywords?: string[] | null;
           forecast_start?: string;
           notes?: string | null;
           created_at?: string;
@@ -559,6 +568,12 @@ export type Database = {
             foreignKeyName: "forecast_oneoffs_category_id_fkey";
             columns: ["category_id"];
             referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "forecast_oneoffs_vault_id_fkey";
+            columns: ["vault_id"];
+            referencedRelation: "vaults";
             referencedColumns: ["id"];
           }
         ];

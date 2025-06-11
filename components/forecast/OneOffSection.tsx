@@ -15,7 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Category, OneOff } from "@/types";
+import { DateInput } from "@/components/ui/date";
+import type { Category, OneOff, Vault } from "@/types";
 
 interface Props {
   forecastStart: string | null;
@@ -26,13 +27,18 @@ export default function OneOffSection({ forecastStart }: Props) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [vaults, setVaults] = useState<Vault[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     amount: 0,
     is_income: false,
     notes: "",
     category_id: "",
+    vault_id: "",
+    date: "",
+    transaction_match_keywords: [] as string[],
   });
+  const [keywordInput, setKeywordInput] = useState("");
 
   useEffect(() => {
     supabase
@@ -40,7 +46,80 @@ export default function OneOffSection({ forecastStart }: Props) {
       .select("id, name")
       .order("name", { ascending: true })
       .then(({ data }) => {
-        if (data) {
+  useEffect(() => {
+    supabase
+      .from("vaults")
+      .select("id, name")
+      .then(({ data }) => {
+        if (data) setVaults(data);
+      });
+  }, []);
+
+    const keywords = keywordInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+        vault_id: formData.vault_id || null,
+        date: formData.date || null,
+        transaction_match_keywords: keywords,
+      setFormData({
+        name: "",
+        amount: 0,
+        is_income: false,
+        notes: "",
+        category_id: "",
+        vault_id: "",
+        date: "",
+        transaction_match_keywords: [],
+      });
+      setKeywordInput("");
+                <div>
+                  <label className="block text-sm font-medium text-foreground font-semibold">
+                    Date
+                  </label>
+                  <DateInput name="date" value={formData.date} onChange={handleChange} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground font-semibold">
+                    Vault
+                  </label>
+                  <Select
+                    name="vault_id"
+                    value={formData.vault_id}
+                    onChange={handleChange}
+                    className="w-full bg-card text-foreground border-border"
+                  >
+                    <option value="">None</option>
+                    {vaults.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground font-semibold">
+                    Transaction Match Keywords
+                  </label>
+                  <Input
+                    name="transaction_match_keywords"
+                    value={keywordInput}
+                    onChange={(e) => setKeywordInput(e.target.value)}
+                    onBlur={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        // store array in form data for type safety
+                        // but actual insert uses parsed keywords
+                        transaction_match_keywords: keywordInput
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      }))
+                    }
+                    placeholder="e.g. vet, petco"
+                    className="bg-card text-foreground border-border"
+                  />
+                </div>
           setCategories(
             data.map((c) => ({ ...c, sort_order: null })) // add missing field
           );

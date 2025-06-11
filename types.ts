@@ -85,6 +85,9 @@ export type OneOff = {
   amount: number;
   is_income: boolean;
   forecast_start: string;
+  date: string | null;
   category_id: string | null;
+  vault_id: string | null;
+  transaction_match_keywords: string[] | null;
   notes: string | null;
 };
