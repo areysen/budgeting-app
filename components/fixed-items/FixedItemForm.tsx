@@ -493,14 +493,9 @@ export function FixedItemForm({ item, onClose, onSave }: FixedItemFormProps) {
               variant="destructive"
               onClick={async () => {
                 if (
-                  confirm(
-                    "Are you sure you want to delete this fixed item?"
-                  )
+                  confirm("Are you sure you want to delete this fixed item?")
                 ) {
-                  await supabase
-                    .from("fixed_items")
-                    .delete()
-                    .eq("id", item.id);
+                  await supabase.from("fixed_items").delete().eq("id", item.id);
                   onSave();
                   onClose();
                 }

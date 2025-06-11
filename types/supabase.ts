@@ -102,6 +102,7 @@ export type Database = {
           due_days: string[] | null;
           frequency: string;
           id: string;
+          is_income: boolean;
           name: string;
           notes: string | null;
           start_date: string | null;
@@ -118,6 +119,7 @@ export type Database = {
           due_days?: string[] | null;
           frequency: string;
           id?: string;
+          is_income?: boolean;
           name: string;
           notes?: string | null;
           start_date?: string | null;
@@ -134,6 +136,7 @@ export type Database = {
           due_days?: string[] | null;
           frequency?: string;
           id?: string;
+          is_income?: boolean;
           name?: string;
           notes?: string | null;
           start_date?: string | null;
@@ -153,6 +156,104 @@ export type Database = {
           },
           {
             foreignKeyName: "fixed_items_vault_id_fkey";
+            columns: ["vault_id"];
+            isOneToOne: false;
+            referencedRelation: "vaults";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      forecast_adjustments: {
+        Row: {
+          created_at: string | null;
+          defer_to_start: string | null;
+          fixed_item_id: string;
+          forecast_start: string;
+          id: string;
+          override_amount: number | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          defer_to_start?: string | null;
+          fixed_item_id: string;
+          forecast_start: string;
+          id?: string;
+          override_amount?: number | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          defer_to_start?: string | null;
+          fixed_item_id?: string;
+          forecast_start?: string;
+          id?: string;
+          override_amount?: number | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "forecast_adjustments_fixed_item_id_fkey";
+            columns: ["fixed_item_id"];
+            isOneToOne: false;
+            referencedRelation: "fixed_items";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      forecast_oneoffs: {
+        Row: {
+          amount: number;
+          category_id: string | null;
+          created_at: string | null;
+          date: string | null;
+          forecast_start: string;
+          id: string;
+          is_income: boolean | null;
+          name: string;
+          notes: string | null;
+          transaction_match_keywords: string[] | null;
+          user_id: string;
+          vault_id: string | null;
+        };
+        Insert: {
+          amount: number;
+          category_id?: string | null;
+          created_at?: string | null;
+          date?: string | null;
+          forecast_start: string;
+          id?: string;
+          is_income?: boolean | null;
+          name: string;
+          notes?: string | null;
+          transaction_match_keywords?: string[] | null;
+          user_id: string;
+          vault_id?: string | null;
+        };
+        Update: {
+          amount?: number;
+          category_id?: string | null;
+          created_at?: string | null;
+          date?: string | null;
+          forecast_start?: string;
+          id?: string;
+          is_income?: boolean | null;
+          name?: string;
+          notes?: string | null;
+          transaction_match_keywords?: string[] | null;
+          user_id?: string;
+          vault_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "forecast_oneoffs_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "forecast_oneoffs_vault_id_fkey";
             columns: ["vault_id"];
             isOneToOne: false;
             referencedRelation: "vaults";
@@ -470,98 +571,6 @@ export type Database = {
           user_id?: string | null;
         };
         Relationships: [];
-      };
-      forecast_adjustments: {
-        Row: {
-          id: string;
-          user_id: string;
-          fixed_item_id: string;
-          forecast_start: string;
-          defer_to_start: string | null;
-          override_amount: number | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          fixed_item_id: string;
-          forecast_start: string;
-          defer_to_start?: string | null;
-          override_amount?: number | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          fixed_item_id?: string;
-          forecast_start?: string;
-          defer_to_start?: string | null;
-          override_amount?: number | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "forecast_adjustments_user_id_fkey";
-            columns: ["user_id"];
-            referencedRelation: "auth.users";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "forecast_adjustments_fixed_item_id_fkey";
-            columns: ["fixed_item_id"];
-            referencedRelation: "fixed_items";
-            referencedColumns: ["id"];
-          }
-        ];
-      };
-      forecast_oneoffs: {
-        Row: {
-          id: string;
-          user_id: string;
-          name: string;
-          amount: number;
-          is_income: boolean;
-          category_id: string | null;
-          forecast_start: string;
-          notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          name: string;
-          amount: number;
-          is_income?: boolean;
-          category_id?: string | null;
-          forecast_start: string;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          name?: string;
-          amount?: number;
-          is_income?: boolean;
-          category_id?: string | null;
-          forecast_start?: string;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "forecast_oneoffs_user_id_fkey";
-            columns: ["user_id"];
-            referencedRelation: "auth.users";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "forecast_oneoffs_category_id_fkey";
-            columns: ["category_id"];
-            referencedRelation: "categories";
-            referencedColumns: ["id"];
-          }
-        ];
       };
     };
     Views: {
