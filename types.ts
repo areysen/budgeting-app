@@ -78,3 +78,13 @@ export interface PlaidTransaction {
   iso_currency_code: string | null;
   pending: boolean;
 }
+
+export type OneOff = {
+  id: string;
+  name: string;
+  amount: number;
+  is_income: boolean;
+  forecast_start: string;
+  category_id: string | null;
+  notes: string | null;
+};
