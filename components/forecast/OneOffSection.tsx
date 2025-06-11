@@ -40,7 +40,11 @@ export default function OneOffSection({ forecastStart }: Props) {
       .select("id, name")
       .order("name", { ascending: true })
       .then(({ data }) => {
-        if (data) setCategories(data);
+        if (data) {
+          setCategories(
+            data.map((c) => ({ ...c, sort_order: null })) // add missing field
+          );
+        }
       });
   }, []);
 
@@ -60,7 +64,9 @@ export default function OneOffSection({ forecastStart }: Props) {
   }, [forecastStart]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
     const { name, value, type, checked } = e.target as HTMLInputElement;
     setFormData((prev) => ({
@@ -75,6 +81,10 @@ export default function OneOffSection({ forecastStart }: Props) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user?.id) {
+      alert("User not found. Please log in again.");
+      return;
+    }
     const { error } = await supabase.from("forecast_oneoffs").insert([
       {
         name: formData.name.trim(),
@@ -89,7 +99,13 @@ export default function OneOffSection({ forecastStart }: Props) {
 
     if (!error) {
       setDialogOpen(false);
-      setFormData({ name: "", amount: 0, is_income: false, notes: "", category_id: "" });
+      setFormData({
+        name: "",
+        amount: 0,
+        is_income: false,
+        notes: "",
+        category_id: "",
+      });
       fetchOneOffs();
     } else {
       alert("Failed to add item");
@@ -146,7 +162,10 @@ export default function OneOffSection({ forecastStart }: Props) {
                     checked={formData.is_income}
                     onChange={handleChange}
                   />
-                  <label htmlFor="is_income" className="text-sm text-foreground font-semibold">
+                  <label
+                    htmlFor="is_income"
+                    className="text-sm text-foreground font-semibold"
+                  >
                     Income Item?
                   </label>
                 </div>
@@ -180,7 +199,11 @@ export default function OneOffSection({ forecastStart }: Props) {
                   />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
                   <Button type="submit">Add</Button>
