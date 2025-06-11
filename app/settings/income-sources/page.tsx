@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +45,9 @@ export default function IncomeSourcesPage() {
                 <DialogTitle>
                   {editItem ? `Edit Income Source` : `Add Income Source`}
                 </DialogTitle>
+                <DialogDescription>
+                  Enter the income source details.
+                </DialogDescription>
               </DialogHeader>
             }
           >

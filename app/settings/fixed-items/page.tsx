@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { CategoryManager } from "@/components/categories/CategoryManager";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,9 @@ export default function FixedItemsPage() {
             header={
               <DialogHeader>
                 <DialogTitle>Manage Categories</DialogTitle>
+                <DialogDescription>
+                  Create, update, or reorder categories.
+                </DialogDescription>
               </DialogHeader>
             }
           >
@@ -72,6 +76,9 @@ export default function FixedItemsPage() {
                 <DialogTitle>
                   {editItem ? `Edit Fixed Item` : `Add Fixed Item`}
                 </DialogTitle>
+                <DialogDescription>
+                  Fill out the fixed item details.
+                </DialogDescription>
               </DialogHeader>
             }
           >

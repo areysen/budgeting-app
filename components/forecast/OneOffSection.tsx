@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -165,6 +166,9 @@ export default function OneOffSection({ forecastStart, onSaved }: Props) {
               header={
                 <DialogHeader>
                   <DialogTitle>Add One-Off Item</DialogTitle>
+                  <DialogDescription>
+                    Provide details for a single income or expense item.
+                  </DialogDescription>
                 </DialogHeader>
               }
             >

@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -116,6 +117,9 @@ export default function FixedItemForecastModal({
         header={
           <DialogHeader>
             <DialogTitle>Edit Fixed Item</DialogTitle>
+            <DialogDescription>
+              Adjust amounts, deferment, or notes for this item.
+            </DialogDescription>
           </DialogHeader>
         }
       >

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/auth/LogoutButton";
-import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription, DialogHeader } from "@/components/ui/dialog";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -61,7 +61,17 @@ export function TopNav() {
                 <Menu className="h-6 w-6" />
               </button>
             </DialogTrigger>
-            <DialogContent className="md:hidden max-w-xs" header={<DialogTitle>Menu</DialogTitle>}>
+            <DialogContent
+              className="md:hidden max-w-xs"
+              header={
+                <DialogHeader>
+                  <DialogTitle>Menu</DialogTitle>
+                  <DialogDescription>
+                    Select a page or log out.
+                  </DialogDescription>
+                </DialogHeader>
+              }
+            >
               <nav className="flex flex-col space-y-2">
                 {renderLinks(() => setOpen(false))}
               </nav>
