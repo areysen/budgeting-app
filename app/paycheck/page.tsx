@@ -479,7 +479,9 @@ export default function PaycheckPage() {
   return (
     <AuthGuard>
       <div className="space-y-6">
-        <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-4">
+        <h1 className="text-3xl font-bold text-foreground">Paycheck Plan</h1>
+
+        <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
           <h2 className="text-lg font-semibold text-foreground mb-2">
             Select Paycheck
           </h2>
@@ -499,8 +501,6 @@ export default function PaycheckPage() {
             ))}
           </select>
         </section>
-
-        <h1 className="text-3xl font-bold text-foreground">Paycheck Plan</h1>
 
         <section className="bg-muted/10 border border-border ring-border rounded-lg  p-6 space-y-2">
           <h2 className="text-lg font-semibold text-foreground mb-2">
