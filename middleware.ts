@@ -23,7 +23,24 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const { pathname } = req.nextUrl;
+  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/auth");
+
+  if (!session && !isAuthRoute) {
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = "/login";
+    redirectUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (session && pathname === "/login") {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
   return res;
 }
 
