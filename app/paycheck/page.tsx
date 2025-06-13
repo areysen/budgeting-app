@@ -25,7 +25,7 @@ export default function PaycheckPage() {
 
   const [isLoadingIncome, setIsLoadingIncome] = useState(true);
   const [isLoadingFixedItems, setIsLoadingFixedItems] = useState(true);
-
+  const [isApproving, setIsApproving] = useState(false);
   type IncomeSource = {
     id: string;
     name: string;
@@ -61,7 +61,9 @@ export default function PaycheckPage() {
     if (!start) return;
     const { data } = await supabase
       .from("forecast_oneoffs")
-      .select("amount, is_income, forecast_start");
+      .select(
+        "id, name, amount, is_income, forecast_start, category_id, vault_id"
+      );
 
     const included =
       data?.filter((row) => {
@@ -290,7 +292,9 @@ export default function PaycheckPage() {
 
     supabase
       .from("forecast_oneoffs")
-      .select("amount, is_income, forecast_start")
+      .select(
+        "id, name, amount, is_income, forecast_start, category_id, vault_id"
+      )
       .then(({ data }) => {
         if (!data) {
           setOneOffItems([]);
@@ -475,6 +479,197 @@ export default function PaycheckPage() {
         });
     });
   }, [selectedDate, start, end, nextPaycheck]);
+
+  // Add Approve Budget handler
+  const handleApproveBudget = async () => {
+    if (!selectedDate || !start || !end) return;
+    setIsApproving(true);
+
+    try {
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      if (userError || !userData?.user?.id) throw new Error("No user found.");
+      const userId = userData.user.id;
+
+      // STEP 1: Check if paycheck already exists (using .select() array check)
+      const { data: existing, error: fetchError } = await supabase
+        .from("paychecks")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("paycheck_date", selectedDate.adjustedDate);
+
+      let paycheckId: string;
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (existing && existing.length > 0) {
+        paycheckId = existing[0].id;
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from("paychecks")
+          .insert({
+            user_id: userId,
+            paycheck_date: selectedDate.adjustedDate,
+            total_amount: incomeTotal + oneOffIncomeTotal,
+            notes: "Approved via UI",
+            // approved will default to false (see DB schema)
+          })
+          .select("id")
+          .single();
+
+        if (insertError || !inserted) throw insertError;
+        paycheckId = inserted.id;
+      }
+
+      console.log("✅ Paycheck ready:", paycheckId);
+
+      // STEP 1.5: Prevent duplicate inserts by checking if this paycheck already has planned data
+      const { data: existingExpenses, error: expenseCheckError } =
+        await supabase
+          .from("expenses")
+          .select("id")
+          .eq("paycheck_id", paycheckId)
+          .limit(1);
+
+      if (expenseCheckError) throw expenseCheckError;
+      let skipExpenses = false;
+      if (existingExpenses.length > 0) {
+        console.warn(
+          "🚫 Expenses already exist for this paycheck. Skipping expense insert."
+        );
+        skipExpenses = true;
+      }
+
+      const { data: existingVaults, error: vaultCheckError } = await supabase
+        .from("vault_contributions")
+        .select("id")
+        .eq("paycheck_id", paycheckId);
+
+      if (vaultCheckError) throw vaultCheckError;
+      console.log("🧾 Vault check result:", existingVaults);
+      const skipVaults =
+        Array.isArray(existingVaults) && existingVaults.length > 0;
+      if (skipVaults) {
+        console.warn(
+          "🚫 Vault contributions already exist for this paycheck. Skipping vault insert."
+        );
+      }
+
+      // STEP 2: Insert expenses from fixedItems and oneOffItems
+      const plannedExpenses = [
+        // From fixed items
+        ...fixedItems.flatMap((item) => {
+          const isDeferred = item.source === "deferred";
+          const itemId = isDeferred
+            ? item.originalFixedItemId ?? item.id.replace("-deferred", "")
+            : item.id;
+
+          const skip = adjustments.some(
+            (a) => a.fixed_item_id === itemId && a.defer_to_start !== null
+          );
+          if (skip) return [];
+
+          const hitDates = getDueDatesForItem(item, selectedDate, start, end);
+          const adjustedAmount =
+            adjustments.find((a) => a.fixed_item_id === itemId)
+              ?.override_amount ?? item.amount;
+
+          return hitDates.map(() => ({
+            user_id: userId,
+            paycheck_id: paycheckId,
+            label: item.name,
+            amount: adjustedAmount,
+            category_id: item.category_id ?? null,
+            vault_id: item.vault_id ?? null,
+            fixed_item_id: isDeferred ? item.originalFixedItemId : item.id,
+            origin: "fixed_item",
+            status: "planned",
+          }));
+        }),
+
+        // From one-off items (expenses only)
+        ...oneOffItems
+          .filter((o) => !o.is_income)
+          .map((item) => ({
+            user_id: userId,
+            paycheck_id: paycheckId,
+            label: item.name || "One-Off Expense",
+            amount: item.amount,
+            category_id: item.category_id ?? null,
+            vault_id: item.vault_id ?? null,
+            forecast_oneoff_id: item.id ?? null,
+            origin: "oneoff",
+            status: "planned",
+          })),
+      ];
+
+      // Bulk insert planned expenses, only if not skipping
+      if (!skipExpenses) {
+        if (plannedExpenses.length > 0) {
+          const { error: insertExpenseError } = await supabase
+            .from("expenses")
+            .insert(plannedExpenses);
+          if (insertExpenseError) throw insertExpenseError;
+        }
+        console.log(`🧾 Inserted ${plannedExpenses.length} planned expenses`);
+      }
+
+      // STEP 3: Insert vault contributions
+      const plannedVaults = [
+        ...vaultItems.flatMap((item) => {
+          const starts = item.start_date ? new Date(item.start_date) : null;
+          if (starts && starts > end) return [];
+
+          const skip = adjustments.some(
+            (a) => a.fixed_item_id === item.id && a.defer_to_start !== null
+          );
+          if (skip) return [];
+
+          const hitDates = getDueDatesForItem(item, selectedDate, start, end);
+          const adjustedAmount =
+            adjustments.find((a) => a.fixed_item_id === item.id)
+              ?.override_amount ?? item.amount;
+
+          return hitDates.map(() => ({
+            user_id: userId,
+            paycheck_id: paycheckId,
+            vault_id: item.vault_id,
+            amount: adjustedAmount,
+            status: "pending",
+            source: "budget",
+          }));
+        }),
+      ];
+
+      // Bulk insert vault contributions, only if not skipping
+      if (!skipVaults) {
+        if (plannedVaults.length > 0) {
+          const { error: insertVaultError } = await supabase
+            .from("vault_contributions")
+            .insert(plannedVaults);
+          if (insertVaultError) throw insertVaultError;
+        }
+        console.log(`🏦 Inserted ${plannedVaults.length} vault contributions`);
+      }
+
+      // STEP 4: Mark paycheck as approved
+      const { error: approvalError } = await supabase
+        .from("paychecks")
+        .update({ approved: true })
+        .eq("id", paycheckId);
+
+      if (approvalError) throw approvalError;
+
+      console.log("🔒 Paycheck marked as approved.");
+    } catch (err) {
+      console.error("❌ Error approving budget:", err);
+      alert("Something went wrong approving your budget.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
 
   return (
     <AuthGuard>
@@ -788,6 +983,16 @@ export default function PaycheckPage() {
             </div>
           )}
         </section>
+        {selectedDate && (
+          <div className="pt-4">
+            <button
+              onClick={handleApproveBudget}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded"
+            >
+              ✅ Approve Budget
+            </button>
+          </div>
+        )}
       </div>
     </AuthGuard>
   );
