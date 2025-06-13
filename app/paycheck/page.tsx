@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase/client";
 import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
 import BudgetPlanningForm from "./components/BudgetPlanningForm";
 import ApprovedBudgetView from "./components/ApprovedBudgetView";
+import ActivePaycheckView from "./components/ActivePaycheckView";
+import { getPaycheckRange } from "@/lib/utils/date/paycheck";
 
 type PaycheckDate = {
   label: string;
@@ -22,6 +24,8 @@ export default function PaycheckPage() {
   const [paycheckDates, setPaycheckDates] = useState<PaycheckDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<PaycheckDate | null>(null);
   const [paycheck, setPaycheck] = useState<PaycheckRecord | null>(null);
+  const [start, setStart] = useState<Date | null>(null);
+  const [end, setEnd] = useState<Date | null>(null);
 
   useEffect(() => {
     const all = generatePaycheckDates(
@@ -39,6 +43,26 @@ export default function PaycheckPage() {
 
     setSelectedDate(active ?? all[0]);
   }, []);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    const all = generatePaycheckDates(
+      new Date("2025-01-01"),
+      new Date("2026-01-01")
+    );
+    const idx = all.findIndex((p) => p.officialDate === selectedDate.officialDate);
+    const next = idx !== -1 ? all[idx + 1] : undefined;
+    const { start, end } = getPaycheckRange(selectedDate, next);
+    setStart(start);
+    setEnd(end);
+  }, [selectedDate]);
+
+  const isActive =
+    paycheck?.approved &&
+    start &&
+    end &&
+    new Date() >= start &&
+    new Date() <= end;
 
   useEffect(() => {
     async function ensurePaycheck(date: PaycheckDate) {
@@ -117,7 +141,10 @@ export default function PaycheckPage() {
             }
           />
         )}
-        {paycheck && paycheck.approved && (
+        {paycheck && paycheck.approved && isActive && (
+          <ActivePaycheckView paycheckId={paycheck.id} />
+        )}
+        {paycheck && paycheck.approved && !isActive && (
           <ApprovedBudgetView paycheckId={paycheck.id} />
         )}
       </div>
