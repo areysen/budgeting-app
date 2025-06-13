@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface BudgetPlanningFormProps {
   paycheckId: string;
+  onApproved?: () => void;
 }
 
 type PaycheckRecord = {
@@ -56,6 +57,7 @@ function getDueDatesForItem(
 
 export default function BudgetPlanningForm({
   paycheckId,
+  onApproved,
 }: BudgetPlanningFormProps) {
   const [record, setRecord] = useState<PaycheckRecord | null>(null);
   const [paycheckDates, setPaycheckDates] = useState<PaycheckDate[]>([]);
@@ -361,6 +363,10 @@ export default function BudgetPlanningForm({
 
   const handleApproveBudget = async () => {
     if (isApproving || !start) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to approve this budget?"
+    );
+    if (!confirmed) return;
     setIsApproving(true);
 
     const { data: user } = await supabase.auth.getUser();
@@ -490,6 +496,9 @@ export default function BudgetPlanningForm({
     if (updated.data) setRecord(updated.data as PaycheckRecord);
 
     setIsApproving(false);
+    if (updated.data) {
+      onApproved?.();
+    }
   };
 
   if (!record || !selectedDate) {

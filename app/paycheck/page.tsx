@@ -108,7 +108,14 @@ export default function PaycheckPage() {
         </section>
 
         {paycheck && !paycheck.approved && (
-          <BudgetPlanningForm paycheckId={paycheck.id} />
+          <BudgetPlanningForm
+            paycheckId={paycheck.id}
+            onApproved={() =>
+              setPaycheck((p) =>
+                p ? { ...p, approved: true } : p
+              )
+            }
+          />
         )}
         {paycheck && paycheck.approved && (
           <ApprovedBudgetView paycheckId={paycheck.id} />
