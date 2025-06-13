@@ -129,7 +129,14 @@ export default function PaycheckPage() {
 
     const today = new Date();
     const upcoming = all
-      .filter((pd) => new Date(pd.adjustedDate) >= today)
+      .filter((pd) => {
+        const d = new Date(pd.adjustedDate);
+        return (
+          d >= today ||
+          (today >= new Date(d) &&
+            today <= new Date(new Date(d).getTime() + 13 * 24 * 60 * 60 * 1000))
+        );
+      })
       .sort(
         (a, b) =>
           new Date(a.adjustedDate).getTime() -
