@@ -19,6 +19,7 @@ interface BudgetPlanningFormProps {
 type PaycheckRecord = {
   id: string;
   paycheck_date: string;
+  approved?: boolean | null;
 };
 
 type PaycheckDate = {
@@ -77,11 +78,12 @@ export default function BudgetPlanningForm({
 
   const [isLoadingIncome, setIsLoadingIncome] = useState(true);
   const [isLoadingFixedItems, setIsLoadingFixedItems] = useState(true);
+  const [isApproving, setIsApproving] = useState(false);
 
   useEffect(() => {
     supabase
       .from("paychecks")
-      .select("id, paycheck_date")
+      .select("id, paycheck_date, approved")
       .eq("id", paycheckId)
       .single()
       .then(({ data }) => {
@@ -186,8 +188,8 @@ export default function BudgetPlanningForm({
       });
   }, [start, end]);
 
-  // Forecast adjustments for this period
-  useEffect(() => {
+  // Refresh forecast adjustments for this period
+  const refreshAdjustments = () => {
     if (!start) return;
     supabase
       .from("forecast_adjustments")
@@ -196,6 +198,11 @@ export default function BudgetPlanningForm({
       .then(({ data }) => {
         setAdjustments(data ?? []);
       });
+  };
+
+  // Forecast adjustments for this period
+  useEffect(() => {
+    refreshAdjustments();
   }, [start]);
 
   // One-off items
@@ -352,6 +359,71 @@ export default function BudgetPlanningForm({
     vaultContributionsTotal -
     oneOffExpenseTotal;
 
+  const handleApproveBudget = async () => {
+    if (isApproving || !start) return;
+    setIsApproving(true);
+
+    const { data: user } = await supabase.auth.getUser();
+    const userId = user?.user?.id;
+    if (!userId) {
+      setIsApproving(false);
+      return;
+    }
+
+    const { data: paycheck } = await supabase
+      .from("paychecks")
+      .select("approved")
+      .eq("id", paycheckId)
+      .single();
+
+    if (paycheck?.approved) {
+      setIsApproving(false);
+      return;
+    }
+
+    const fixedRows = fixedDisplayItems.map((item) => ({
+      user_id: userId,
+      paycheck_id: paycheckId,
+      label: item.name,
+      amount: item.adjustedAmount,
+      origin: "fixed",
+      status: "planned",
+      fixed_item_id: item.id,
+    }));
+
+    const vaultRows = vaultDisplayItems.map((item) => ({
+      user_id: userId,
+      paycheck_id: paycheckId,
+      vault_id: vaultItems.find((v) => v.id === item.id)?.vault_id as string,
+      amount: item.adjustedAmount,
+      status: "pending",
+      source: "fixed_item",
+    }));
+
+    const oneOffRows = oneOffItems
+      .filter((o) => !o.is_income)
+      .map((item) => ({
+        user_id: userId,
+        paycheck_id: paycheckId,
+        label: item.name,
+        amount: item.amount,
+        origin: "oneoff",
+        status: "planned",
+        forecast_oneoff_id: item.id,
+        category_id: item.category_id,
+        vault_id: item.vault_id,
+      }));
+
+    await supabase.from("expenses").insert([...fixedRows, ...oneOffRows]);
+    await supabase.from("vault_contributions").insert(vaultRows);
+    await supabase
+      .from("paychecks")
+      .update({ approved: true })
+      .eq("id", paycheckId);
+
+    setIsApproving(false);
+  };
+
   if (!record || !selectedDate) {
     return <p className="text-muted-foreground">Loading...</p>;
   }
@@ -415,9 +487,9 @@ export default function BudgetPlanningForm({
                   fixedItem={{ ...fixedItems.find((f) => f.id === item.id)! }}
                   fixedItemId={item.id}
                   forecastStart={start?.toISOString().slice(0, 10) ?? ""}
-                  onSaved={() => {}}
+                  onSaved={refreshAdjustments}
                   trigger={
-                    <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background">
+                    <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition">
                       <div className="text-sm font-medium text-foreground">
                         {item.name}
                       </div>
@@ -452,9 +524,9 @@ export default function BudgetPlanningForm({
                   fixedItem={{ ...vaultItems.find((v) => v.id === item.id)! }}
                   fixedItemId={item.id}
                   forecastStart={start?.toISOString().slice(0, 10) ?? ""}
-                  onSaved={() => {}}
+                  onSaved={refreshAdjustments}
                   trigger={
-                    <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background">
+                    <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition">
                       <div className="text-sm font-medium text-foreground">
                         {item.name}
                       </div>
@@ -500,6 +572,14 @@ export default function BudgetPlanningForm({
             </div>
           )}
         </section>
+
+        <button
+          className="w-full bg-green-600 text-white px-4 py-2 rounded"
+          onClick={handleApproveBudget}
+          disabled={isApproving}
+        >
+          Approve Budget
+        </button>
       </div>
     </AuthGuard>
   );

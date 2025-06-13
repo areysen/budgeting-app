@@ -29,7 +29,15 @@ export default function PaycheckPage() {
       new Date("2026-01-01")
     );
     setPaycheckDates(all);
-    if (all.length > 0) setSelectedDate(all[0]);
+
+    const today = new Date();
+    const active = all.find((pd, i) => {
+      const current = new Date(pd.adjustedDate);
+      const next = all[i + 1] ? new Date(all[i + 1].adjustedDate) : null;
+      return current <= today && (!next || today < next);
+    });
+
+    setSelectedDate(active ?? all[0]);
   }, []);
 
   useEffect(() => {
