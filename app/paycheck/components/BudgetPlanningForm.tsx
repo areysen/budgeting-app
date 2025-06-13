@@ -381,15 +381,25 @@ export default function BudgetPlanningForm({
       return;
     }
 
-    const fixedRows = fixedDisplayItems.map((item) => ({
-      user_id: userId,
-      paycheck_id: paycheckId,
-      label: item.name,
-      amount: item.adjustedAmount,
-      origin: "fixed",
-      status: "planned",
-      fixed_item_id: item.id,
-    }));
+    // Add expense_date and contribution_date to inserts
+    const expenseDate =
+      selectedDate?.adjustedDate ?? start?.toISOString().slice(0, 10) ?? null;
+    const fixedRows = fixedDisplayItems.map((item) => {
+      const fullItem = fixedItems.find((f) => f.id === item.id);
+      return {
+        user_id: userId,
+        paycheck_id: paycheckId,
+        label: item.name,
+        amount: item.adjustedAmount,
+        origin: "fixed",
+        status: "planned",
+        fixed_item_id: item.id,
+        expense_date: item.displayDate
+          ? item.displayDate.toISOString().slice(0, 10)
+          : expenseDate,
+        category_id: fullItem?.category_id ?? null,
+      };
+    });
 
     const vaultRows = vaultDisplayItems.map((item) => ({
       user_id: userId,
@@ -398,6 +408,9 @@ export default function BudgetPlanningForm({
       amount: item.adjustedAmount,
       status: "pending",
       source: "fixed_item",
+      contribution_date: item.displayDate
+        ? item.displayDate.toISOString().slice(0, 10)
+        : expenseDate,
     }));
 
     const oneOffRows = oneOffItems
@@ -412,14 +425,69 @@ export default function BudgetPlanningForm({
         forecast_oneoff_id: item.id,
         category_id: item.category_id,
         vault_id: item.vault_id,
+        expense_date: expenseDate,
       }));
 
     await supabase.from("expenses").insert([...fixedRows, ...oneOffRows]);
     await supabase.from("vault_contributions").insert(vaultRows);
+
+    // Insert income records for actual income at time of approval
+    const incomeRows = incomeBreakdown.map((income) => ({
+      user_id: userId,
+      paycheck_id: paycheckId,
+      source: income.name,
+      amount: income.amount,
+      received_date:
+        oneOffItems.find((o) => o.name === income.name && o.is_income)?.date ??
+        expenseDate,
+      // Try to match to forecast_oneoff or income_source if possible
+      forecast_oneoff_id: oneOffItems.find(
+        (o) => o.name === income.name && o.is_income
+      )?.id,
+      income_source_id: incomeSources.find((s) => s.name === income.name)?.id,
+    }));
+    // Add income records for forecast_oneoffs with is_income = true (using the date column if available)
+    const oneOffIncomeRows = oneOffItems
+      .filter((o) => o.is_income)
+      .map((item) => ({
+        user_id: userId,
+        paycheck_id: paycheckId,
+        source: item.name,
+        amount: item.amount,
+        received_date: item.date ?? expenseDate, // Use the date column if available
+        forecast_oneoff_id: item.id,
+        income_source_id: null,
+      }));
+
+    // Combine incomeRows and oneOffIncomeRows, ensuring dates are correctly assigned
+    const allIncomeRows = [
+      ...incomeRows.map((income) => ({
+        ...income,
+        received_date: income.received_date ?? expenseDate, // Use calculated dates for income_sources
+      })),
+      ...oneOffIncomeRows,
+    ];
+
+    await supabase.from("income_records").insert(allIncomeRows);
+
+    // Calculate total amount using same formula as unallocatedBalance
+    const totalApprovedAmount = incomeTotal + oneOffIncomeTotal;
+
     await supabase
       .from("paychecks")
-      .update({ approved: true })
+      .update({
+        approved: true,
+        total_amount: totalApprovedAmount,
+      })
       .eq("id", paycheckId);
+
+    // Fetch updated paycheck record and update local state so UI re-renders
+    const updated = await supabase
+      .from("paychecks")
+      .select("id, paycheck_date, approved")
+      .eq("id", paycheckId)
+      .single();
+    if (updated.data) setRecord(updated.data as PaycheckRecord);
 
     setIsApproving(false);
   };
