@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import type { Database } from "@/types/supabase";
 
 interface ApprovedBudgetViewProps {
   paycheckId: string;
@@ -31,27 +32,37 @@ export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewPro
       const { data: exp } = await supabase
         .from("expenses")
         .select("id, label, amount, categories(name)")
-        .eq("paycheck_id", paycheckId);
+        .eq("paycheck_id", paycheckId)
+        .returns<
+          (Database["public"]["Tables"]["expenses"]["Row"] & {
+            categories: { name: string | null } | null;
+          })[]
+        >();
 
       const { data: vc } = await supabase
         .from("vault_contributions")
         .select("id, amount, vaults(name)")
-        .eq("paycheck_id", paycheckId);
+        .eq("paycheck_id", paycheckId)
+        .returns<
+          (Database["public"]["Tables"]["vault_contributions"]["Row"] & {
+            vaults: { name: string | null } | null;
+          })[]
+        >();
 
       setExpenses(
         (exp ?? []).map((e) => ({
-          id: e.id as string,
-          label: e.label as string,
-          amount: e.amount as number,
-          category_name: (e as any).categories?.name ?? null,
+          id: e.id,
+          label: e.label,
+          amount: e.amount,
+          category_name: e.categories?.name ?? null,
         }))
       );
 
       setVaults(
         (vc ?? []).map((v) => ({
-          id: v.id as string,
-          amount: v.amount as number,
-          vault_name: (v as any).vaults?.name ?? null,
+          id: v.id,
+          amount: v.amount,
+          vault_name: v.vaults?.name ?? null,
         }))
       );
       setLoading(false);
@@ -59,7 +70,6 @@ export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewPro
     fetchData();
   }, [paycheckId]);
 
-  const incomeTotal = 0; // placeholder
   const expenseTotal = expenses.reduce((sum, e) => sum + e.amount, 0) + vaults.reduce((s, v) => s + v.amount, 0);
 
   return (

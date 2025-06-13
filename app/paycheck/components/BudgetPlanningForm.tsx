@@ -7,6 +7,7 @@ import { getPaycheckRange } from "@/lib/utils/date/paycheck";
 import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
 import { normalizeFixedItem } from "@/lib/utils/fixedItem";
 import { FixedItem } from "@/types";
+import type { Database } from "@/types/supabase";
 import OneOffSection from "@/components/forecast/OneOffSection";
 import FixedItemForecastModal from "@/components/forecast/FixedItemForecastModal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,11 +32,11 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
   const [paycheckDates, setPaycheckDates] = useState<PaycheckDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<PaycheckDate | null>(null);
 
-  const [incomeSources, setIncomeSources] = useState<any[]>([]);
+  const [incomeSources, setIncomeSources] = useState<
+    Database["public"]["Tables"]["income_sources"]["Row"][]
+  >([]);
   const [fixedItems, setFixedItems] = useState<FixedItem[]>([]);
   const [vaultItems, setVaultItems] = useState<FixedItem[]>([]);
-  const [oneOffItems, setOneOffItems] = useState<any[]>([]);
-  const [adjustments, setAdjustments] = useState<any[]>([]);
 
   const [isLoadingIncome, setIsLoadingIncome] = useState(true);
   const [isLoadingFixedItems, setIsLoadingFixedItems] = useState(true);
@@ -108,25 +109,15 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
       });
   }, [start, end]);
 
-  // Placeholder one-off & adjustments
-  useEffect(() => {
-    if (!start) return;
-    const key = start.toISOString().slice(0, 10);
-    supabase
-      .from("forecast_oneoffs")
-      .select("*")
-      .eq("forecast_start", key)
-      .then(({ data }) => setOneOffItems(data ?? []));
-    supabase
-      .from("forecast_adjustments")
-      .select("*")
-      .eq("forecast_start", key)
-      .then(({ data }) => setAdjustments(data ?? []));
-  }, [start]);
 
-  if (!record || !selectedDate) return <p className="text-muted-foreground">Loading...</p>;
+  const incomeTotal = useMemo(
+    () => incomeSources.reduce((sum, s) => sum + (s.amount ?? 0), 0),
+    [incomeSources]
+  );
 
-  const incomeTotal = useMemo(() => incomeSources.reduce((sum, s) => sum + (s.amount ?? 0), 0), [incomeSources]);
+  if (!record || !selectedDate) {
+    return <p className="text-muted-foreground">Loading...</p>;
+  }
 
   return (
     <AuthGuard>
