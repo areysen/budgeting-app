@@ -188,8 +188,8 @@ export default function BudgetPlanningForm({
       });
   }, [start, end]);
 
-  // Forecast adjustments for this period
-  useEffect(() => {
+  // Refresh forecast adjustments for this period
+  const refreshAdjustments = () => {
     if (!start) return;
     supabase
       .from("forecast_adjustments")
@@ -198,6 +198,11 @@ export default function BudgetPlanningForm({
       .then(({ data }) => {
         setAdjustments(data ?? []);
       });
+  };
+
+  // Forecast adjustments for this period
+  useEffect(() => {
+    refreshAdjustments();
   }, [start]);
 
   // One-off items
@@ -482,9 +487,9 @@ export default function BudgetPlanningForm({
                   fixedItem={{ ...fixedItems.find((f) => f.id === item.id)! }}
                   fixedItemId={item.id}
                   forecastStart={start?.toISOString().slice(0, 10) ?? ""}
-                  onSaved={() => {}}
+                  onSaved={refreshAdjustments}
                   trigger={
-                    <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background">
+                    <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition">
                       <div className="text-sm font-medium text-foreground">
                         {item.name}
                       </div>
@@ -519,9 +524,9 @@ export default function BudgetPlanningForm({
                   fixedItem={{ ...vaultItems.find((v) => v.id === item.id)! }}
                   fixedItemId={item.id}
                   forecastStart={start?.toISOString().slice(0, 10) ?? ""}
-                  onSaved={() => {}}
+                  onSaved={refreshAdjustments}
                   trigger={
-                    <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background">
+                    <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background hover:bg-muted transition">
                       <div className="text-sm font-medium text-foreground">
                         {item.name}
                       </div>
@@ -569,7 +574,7 @@ export default function BudgetPlanningForm({
         </section>
 
         <button
-          className="bg-green-600 text-white px-4 py-2 rounded"
+          className="w-full bg-green-600 text-white px-4 py-2 rounded"
           onClick={handleApproveBudget}
           disabled={isApproving}
         >
