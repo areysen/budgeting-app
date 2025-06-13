@@ -24,7 +24,10 @@ export default function PaycheckPage() {
   const [paycheck, setPaycheck] = useState<PaycheckRecord | null>(null);
 
   useEffect(() => {
-    const all = generatePaycheckDates(new Date("2025-01-01"), new Date("2026-01-01"));
+    const all = generatePaycheckDates(
+      new Date("2025-01-01"),
+      new Date("2026-01-01")
+    );
     setPaycheckDates(all);
     if (all.length > 0) setSelectedDate(all[0]);
   }, []);
@@ -76,7 +79,9 @@ export default function PaycheckPage() {
     <AuthGuard>
       <div className="space-y-6">
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Select Paycheck</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Select Paycheck
+          </h2>
           <select
             className="w-full border border-border rounded-md p-2 bg-background text-foreground"
             value={selectedDate?.adjustedDate ?? ""}
@@ -87,14 +92,19 @@ export default function PaycheckPage() {
             </option>
             {paycheckDates.map((pd) => (
               <option key={pd.adjustedDate} value={pd.adjustedDate}>
-                {pd.label} - {new Date(pd.adjustedDate + "T00:00:00").toLocaleDateString()}
+                {pd.label} -{" "}
+                {new Date(pd.adjustedDate + "T00:00:00").toLocaleDateString()}
               </option>
             ))}
           </select>
         </section>
 
-        {paycheck && !paycheck.approved && <BudgetPlanningForm paycheckId={paycheck.id} />}
-        {paycheck && paycheck.approved && <ApprovedBudgetView paycheckId={paycheck.id} />}
+        {paycheck && !paycheck.approved && (
+          <BudgetPlanningForm paycheckId={paycheck.id} />
+        )}
+        {paycheck && paycheck.approved && (
+          <ApprovedBudgetView paycheckId={paycheck.id} />
+        )}
       </div>
     </AuthGuard>
   );

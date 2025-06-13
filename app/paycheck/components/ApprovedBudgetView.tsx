@@ -21,7 +21,9 @@ interface VaultContribution {
   vault_name: string | null;
 }
 
-export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewProps) {
+export default function ApprovedBudgetView({
+  paycheckId,
+}: ApprovedBudgetViewProps) {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [vaults, setVaults] = useState<VaultContribution[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,9 @@ export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewPro
     fetchData();
   }, [paycheckId]);
 
-  const expenseTotal = expenses.reduce((sum, e) => sum + e.amount, 0) + vaults.reduce((s, v) => s + v.amount, 0);
+  const expenseTotal =
+    expenses.reduce((sum, e) => sum + e.amount, 0) +
+    vaults.reduce((s, v) => s + v.amount, 0);
 
   return (
     <AuthGuard>
@@ -80,7 +84,9 @@ export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewPro
         ) : (
           <>
             <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-              <h2 className="text-lg font-semibold text-foreground mb-2">Expenses</h2>
+              <h2 className="text-lg font-semibold text-foreground mb-2">
+                Expenses
+              </h2>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left">
@@ -91,7 +97,10 @@ export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewPro
                 </thead>
                 <tbody>
                   {expenses.map((e) => (
-                    <tr key={e.id} className="border-b border-border last:border-0">
+                    <tr
+                      key={e.id}
+                      className="border-b border-border last:border-0"
+                    >
                       <td className="py-1">{e.label}</td>
                       <td className="py-1">${e.amount.toFixed(2)}</td>
                       <td className="py-1">{e.category_name ?? ""}</td>
@@ -102,7 +111,9 @@ export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewPro
             </section>
 
             <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-              <h2 className="text-lg font-semibold text-foreground mb-2">Vault Contributions</h2>
+              <h2 className="text-lg font-semibold text-foreground mb-2">
+                Vault Contributions
+              </h2>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left">
@@ -112,7 +123,10 @@ export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewPro
                 </thead>
                 <tbody>
                   {vaults.map((v) => (
-                    <tr key={v.id} className="border-b border-border last:border-0">
+                    <tr
+                      key={v.id}
+                      className="border-b border-border last:border-0"
+                    >
                       <td className="py-1">{v.vault_name ?? ""}</td>
                       <td className="py-1">${v.amount.toFixed(2)}</td>
                     </tr>
@@ -122,8 +136,12 @@ export default function ApprovedBudgetView({ paycheckId }: ApprovedBudgetViewPro
             </section>
 
             <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-              <h2 className="text-lg font-semibold text-foreground mb-2">Summary</h2>
-              <div className="text-sm text-muted-foreground">Total Expense: ${expenseTotal.toFixed(2)}</div>
+              <h2 className="text-lg font-semibold text-foreground mb-2">
+                Summary
+              </h2>
+              <div className="text-sm text-muted-foreground">
+                Total Expense: ${expenseTotal.toFixed(2)}
+              </div>
             </section>
           </>
         )}

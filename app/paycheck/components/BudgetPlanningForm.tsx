@@ -3,10 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
-import {
-  getIncomeHitDate,
-  getPaycheckRange,
-} from "@/lib/utils/date/paycheck";
+import { getIncomeHitDate, getPaycheckRange } from "@/lib/utils/date/paycheck";
 import { formatDateRange, formatDisplayDate } from "@/lib/utils/date/format";
 import { normalizeFixedItem } from "@/lib/utils/fixedItem";
 import { FixedItem } from "@/types";
@@ -34,7 +31,7 @@ function getDueDatesForItem(
   item: FixedItem,
   selectedDate: PaycheckDate | null,
   start: Date | null,
-  end: Date | null,
+  end: Date | null
 ) {
   if (!selectedDate || !start || !end) return [] as Date[];
   const starts = item.start_date ? new Date(item.start_date) : null;
@@ -52,11 +49,13 @@ function getDueDatesForItem(
       name: item.name,
     },
     start,
-    end,
+    end
   );
 }
 
-export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormProps) {
+export default function BudgetPlanningForm({
+  paycheckId,
+}: BudgetPlanningFormProps) {
   const [record, setRecord] = useState<PaycheckRecord | null>(null);
   const [paycheckDates, setPaycheckDates] = useState<PaycheckDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<PaycheckDate | null>(null);
@@ -91,19 +90,26 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
   }, [paycheckId]);
 
   useEffect(() => {
-    const all = generatePaycheckDates(new Date("2025-01-01"), new Date("2026-01-01"));
+    const all = generatePaycheckDates(
+      new Date("2025-01-01"),
+      new Date("2026-01-01")
+    );
     setPaycheckDates(all);
   }, []);
 
   useEffect(() => {
     if (!record || paycheckDates.length === 0) return;
-    const found = paycheckDates.find((p) => p.adjustedDate === record.paycheck_date);
+    const found = paycheckDates.find(
+      (p) => p.adjustedDate === record.paycheck_date
+    );
     setSelectedDate(found ?? null);
   }, [record, paycheckDates]);
 
   const currentIndex = useMemo(() => {
     if (!selectedDate) return -1;
-    return paycheckDates.findIndex((p) => p.officialDate === selectedDate.officialDate);
+    return paycheckDates.findIndex(
+      (p) => p.officialDate === selectedDate.officialDate
+    );
   }, [selectedDate, paycheckDates]);
 
   const nextPaycheck = useMemo(() => {
@@ -112,7 +118,11 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
   }, [currentIndex, paycheckDates]);
 
   const { start, end } = useMemo(() => {
-    if (!selectedDate) return { start: null, end: null } as { start: Date | null; end: Date | null };
+    if (!selectedDate)
+      return { start: null, end: null } as {
+        start: Date | null;
+        end: Date | null;
+      };
     return getPaycheckRange(selectedDate, nextPaycheck);
   }, [selectedDate, nextPaycheck]);
 
@@ -145,7 +155,7 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
                 start_date: row.start_date ?? undefined,
               },
               periodStart,
-              periodEnd,
+              periodEnd
             ).length > 0;
           return (!starts || starts <= periodEnd) && hits;
         });
@@ -164,8 +174,12 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
       .then(({ data }) => {
         if (!data) return;
         const items = data.map(normalizeFixedItem);
-        const vaults = items.filter((i) => i.categories?.name?.trim().toLowerCase() === "vault");
-        const fixed = items.filter((i) => i.categories?.name?.trim().toLowerCase() !== "vault");
+        const vaults = items.filter(
+          (i) => i.categories?.name?.trim().toLowerCase() === "vault"
+        );
+        const fixed = items.filter(
+          (i) => i.categories?.name?.trim().toLowerCase() !== "vault"
+        );
         setVaultItems(vaults);
         setFixedItems(fixed);
         setIsLoadingFixedItems(false);
@@ -194,13 +208,27 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
       )
       .eq("forecast_start", start.toISOString().slice(0, 10))
       .then(({ data }) => {
-        setOneOffItems(data ?? []);
+        setOneOffItems(
+          (data ?? []).map((item) => ({
+            ...item,
+            created_at: null,
+            date: null,
+            notes: null,
+            transaction_match_keywords: null,
+            user_id: "",
+          }))
+        );
       });
   }, [start]);
 
-
   const incomeBreakdown = useMemo(() => {
-    if (!selectedDate || !start || !end) return [] as { id: string; name: string; amount: number; displayDate: string }[];
+    if (!selectedDate || !start || !end)
+      return [] as {
+        id: string;
+        name: string;
+        amount: number;
+        displayDate: string;
+      }[];
     return incomeSources
       .map((source) => {
         if (source.name === "Paycheck") {
@@ -220,7 +248,7 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
             start_date: source.start_date ?? undefined,
           },
           start,
-          end,
+          end
         );
         if (!hits.length) return null;
         return {
@@ -230,7 +258,12 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
           displayDate: formatDisplayDate(hits[0].toISOString()),
         };
       })
-      .filter(Boolean) as { id: string; name: string; amount: number; displayDate: string }[];
+      .filter(Boolean) as {
+      id: string;
+      name: string;
+      amount: number;
+      displayDate: string;
+    }[];
   }, [incomeSources, selectedDate, start, end]);
 
   const incomeTotal = useMemo(
@@ -242,12 +275,19 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
     return fixedItems
       .flatMap((item) => {
         const skip = adjustments.some(
-          (a) => a.fixed_item_id === item.id && a.defer_to_start !== null,
+          (a) => a.fixed_item_id === item.id && a.defer_to_start !== null
         );
-        if (skip) return [] as { id: string; name: string; displayDate: Date; adjustedAmount: number }[];
+        if (skip)
+          return [] as {
+            id: string;
+            name: string;
+            displayDate: Date;
+            adjustedAmount: number;
+          }[];
         const hitDates = getDueDatesForItem(item, selectedDate, start, end);
         const adjustedAmount =
-          adjustments.find((a) => a.fixed_item_id === item.id)?.override_amount ?? item.amount;
+          adjustments.find((a) => a.fixed_item_id === item.id)
+            ?.override_amount ?? item.amount;
         return hitDates.map((d) => ({
           id: item.id,
           name: item.name,
@@ -262,14 +302,21 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
     return vaultItems
       .flatMap((item) => {
         const starts = item.start_date ? new Date(item.start_date) : null;
-        if (starts && end && starts > end) return [] as { id: string; name: string; displayDate: Date; adjustedAmount: number }[];
+        if (starts && end && starts > end)
+          return [] as {
+            id: string;
+            name: string;
+            displayDate: Date;
+            adjustedAmount: number;
+          }[];
         const skip = adjustments.some(
-          (a) => a.fixed_item_id === item.id && a.defer_to_start !== null,
+          (a) => a.fixed_item_id === item.id && a.defer_to_start !== null
         );
         if (skip) return [];
         const hitDates = getDueDatesForItem(item, selectedDate, start, end);
         const adjustedAmount =
-          adjustments.find((a) => a.fixed_item_id === item.id)?.override_amount ?? item.amount;
+          adjustments.find((a) => a.fixed_item_id === item.id)
+            ?.override_amount ?? item.amount;
         return hitDates.map((d) => ({
           id: item.id,
           name: item.name,
@@ -282,19 +329,21 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
 
   const fixedExpensesTotal = useMemo(
     () => fixedDisplayItems.reduce((sum, i) => sum + i.adjustedAmount, 0),
-    [fixedDisplayItems],
+    [fixedDisplayItems]
   );
   const vaultContributionsTotal = useMemo(
     () => vaultDisplayItems.reduce((sum, i) => sum + i.adjustedAmount, 0),
-    [vaultDisplayItems],
+    [vaultDisplayItems]
   );
   const oneOffExpenseTotal = useMemo(
-    () => oneOffItems.filter((o) => !o.is_income).reduce((s, o) => s + o.amount, 0),
-    [oneOffItems],
+    () =>
+      oneOffItems.filter((o) => !o.is_income).reduce((s, o) => s + o.amount, 0),
+    [oneOffItems]
   );
   const oneOffIncomeTotal = useMemo(
-    () => oneOffItems.filter((o) => o.is_income).reduce((s, o) => s + o.amount, 0),
-    [oneOffItems],
+    () =>
+      oneOffItems.filter((o) => o.is_income).reduce((s, o) => s + o.amount, 0),
+    [oneOffItems]
   );
   const unallocatedBalance =
     incomeTotal +
@@ -311,17 +360,21 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
     <AuthGuard>
       <div className="space-y-6">
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Income Summary</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Income Summary
+          </h2>
           {isLoadingIncome ? (
             <Skeleton className="h-4 w-1/2" />
           ) : (
             <div className="space-y-1 text-sm text-muted-foreground">
               <div>
-                <strong>Paycheck Date:</strong> {formatDisplayDate(selectedDate.adjustedDate)}
+                <strong>Paycheck Date:</strong>{" "}
+                {formatDisplayDate(selectedDate.adjustedDate)}
               </div>
               {start && end && (
                 <div>
-                  <strong>Pay Period:</strong> {formatDateRange(start.toISOString(), end.toISOString())}
+                  <strong>Pay Period:</strong>{" "}
+                  {formatDateRange(start.toISOString(), end.toISOString())}
                 </div>
               )}
               <div>
@@ -348,7 +401,9 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
 
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-semibold text-foreground">Fixed Expenses</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Fixed Expenses
+            </h2>
           </div>
           {isLoadingFixedItems ? (
             <Skeleton className="h-4 w-1/2" />
@@ -363,10 +418,15 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
                   onSaved={() => {}}
                   trigger={
                     <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background">
-                      <div className="text-sm font-medium text-foreground">{item.name}</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {item.name}
+                      </div>
                       <div className="text-right text-sm text-muted-foreground">
                         <div>${item.adjustedAmount.toFixed(2)}</div>
-                        <div>Due {formatDisplayDate(item.displayDate.toISOString())}</div>
+                        <div>
+                          Due{" "}
+                          {formatDisplayDate(item.displayDate.toISOString())}
+                        </div>
                       </div>
                     </div>
                   }
@@ -378,7 +438,9 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
 
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-semibold text-foreground">Vault Contributions</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Vault Contributions
+            </h2>
           </div>
           {isLoadingFixedItems ? (
             <Skeleton className="h-4 w-1/2" />
@@ -393,10 +455,15 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
                   onSaved={() => {}}
                   trigger={
                     <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background">
-                      <div className="text-sm font-medium text-foreground">{item.name}</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {item.name}
+                      </div>
                       <div className="text-right text-sm text-muted-foreground">
                         <div>${item.adjustedAmount.toFixed(2)}</div>
-                        <div>Due {formatDisplayDate(item.displayDate.toISOString())}</div>
+                        <div>
+                          Due{" "}
+                          {formatDisplayDate(item.displayDate.toISOString())}
+                        </div>
                       </div>
                     </div>
                   }
@@ -407,11 +474,16 @@ export default function BudgetPlanningForm({ paycheckId }: BudgetPlanningFormPro
         </section>
 
         {start && (
-          <OneOffSection forecastStart={start.toISOString().slice(0, 10)} onSaved={() => {}} />
+          <OneOffSection
+            forecastStart={start.toISOString().slice(0, 10)}
+            onSaved={() => {}}
+          />
         )}
 
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Unallocated Balance</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Unallocated Balance
+          </h2>
           {isLoadingIncome || isLoadingFixedItems ? (
             <Skeleton className="h-4 w-1/2" />
           ) : (
