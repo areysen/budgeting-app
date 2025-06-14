@@ -22,6 +22,8 @@ type PaycheckRecord = {
 type ExpenseRow = Database["public"]["Tables"]["expenses"]["Row"] & {
   categories: { name: string | null } | null;
   vaults: { name: string | null } | null;
+  // Add transaction_id for one-to-one matching (nullable)
+  transaction_id?: string | null;
 };
 
 type VaultContributionRow =
@@ -33,6 +35,17 @@ type IncomeRecordRow = Database["public"]["Tables"]["income_records"]["Row"];
 
 type TransactionRow = Database["public"]["Tables"]["transactions"]["Row"] & {
   vaults: { name: string | null } | null;
+  // Add source for constraint tracking
+  source?: "manual" | "plaid" | "from_expense" | string | null;
+};
+
+// ExpenseTransactionLink: for many-to-one/partial matches
+type ExpenseTransactionLink = {
+  id: string;
+  expense_id: string;
+  transaction_id: string;
+  matched_amount: number;
+  created_at: string | null;
 };
 
 export default function ActivePaycheckView({
@@ -43,6 +56,9 @@ export default function ActivePaycheckView({
   const [vaults, setVaults] = useState<VaultContributionRow[]>([]);
   const [income, setIncome] = useState<IncomeRecordRow[]>([]);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [expenseTransactionLinks, setExpenseTransactionLinks] = useState<
+    ExpenseTransactionLink[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   const [paycheckDate, setPaycheckDate] = useState<string | null>(null);
@@ -86,14 +102,14 @@ export default function ActivePaycheckView({
     setEnd(end);
   }, [paycheckDate]);
 
-  // Fetch data for paycheck
+  // Fetch data for paycheck, including expense_transaction_links
   useEffect(() => {
     async function load() {
       if (!paycheckId) return;
       setLoading(true);
       const { data: exp } = await supabase
         .from("expenses")
-        .select("*, categories(name), vaults(name)")
+        .select("*, categories(name), vaults(name), transaction_id")
         .eq("paycheck_id", paycheckId)
         .returns<ExpenseRow[]>();
       setExpenses(exp ?? []);
@@ -115,11 +131,28 @@ export default function ActivePaycheckView({
       if (start && end) {
         const { data: txns } = await supabase
           .from("transactions")
-          .select("*, vaults(name)")
+          .select("*, vaults(name), source")
           .gte("posted_at", start.toISOString())
           .lte("posted_at", end.toISOString())
           .returns<TransactionRow[]>();
         setTransactions(txns ?? []);
+      }
+
+      // Fetch expense_transaction_links for this paycheck's expenses
+      // First, get all expense ids for this paycheck
+      let expenseIds: string[] = [];
+      if (exp && Array.isArray(exp)) {
+        expenseIds = exp.map((e) => e.id);
+      }
+      if (expenseIds.length > 0) {
+        const { data: links } = await supabase
+          .from("expense_transaction_links")
+          .select("*")
+          .in("expense_id", expenseIds)
+          .returns<ExpenseTransactionLink[]>();
+        setExpenseTransactionLinks(links ?? []);
+      } else {
+        setExpenseTransactionLinks([]);
       }
 
       setLoading(false);
@@ -141,9 +174,43 @@ export default function ActivePaycheckView({
   );
   const remaining = incomeTotal - expenseTotal - vaultTotal;
 
-  // Placeholder matching logic - in future this will look at linked transaction ids
-  const matchedTxns: TransactionRow[] = [];
-  const unmatchedTxns = transactions;
+  // Matching logic: use expense_transaction_links and transaction_id (one-to-one) from expenses
+  // Build sets of matched transaction IDs
+  const matchedTransactionIds = useMemo(() => {
+    // From expense_transaction_links
+    const linkTxnIds = new Set(
+      expenseTransactionLinks.map((l) => l.transaction_id)
+    );
+    // From one-to-one expense.transaction_id
+    expenses.forEach((e) => {
+      if (e.transaction_id) linkTxnIds.add(e.transaction_id);
+    });
+    return linkTxnIds;
+  }, [expenseTransactionLinks, expenses]);
+
+  const matchedTxns = useMemo(
+    () => transactions.filter((t) => t.id && matchedTransactionIds.has(t.id)),
+    [transactions, matchedTransactionIds]
+  );
+  const unmatchedTxns = useMemo(
+    () => transactions.filter((t) => !t.id || !matchedTransactionIds.has(t.id)),
+    [transactions, matchedTransactionIds]
+  );
+
+  // Sort expenses by expense_date ascending for rendering
+  const sortedExpenses = useMemo(() => {
+    return [...expenses].sort(
+      (a, b) =>
+        new Date(a.expense_date ?? "").getTime() -
+        new Date(b.expense_date ?? "").getTime()
+    );
+  }, [expenses]);
+
+  // Mark as Paid modal state
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseRow | null>(
+    null
+  );
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   if (!paycheck || !paycheckDate || loading) {
     return (
@@ -158,7 +225,9 @@ export default function ActivePaycheckView({
       <div className="space-y-6">
         {/* Summary */}
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Paycheck Summary</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Paycheck Summary
+          </h2>
           <div className="space-y-1 text-sm text-muted-foreground">
             <div>
               <strong>Paycheck Date:</strong> {formatDisplayDate(paycheckDate)}
@@ -173,7 +242,8 @@ export default function ActivePaycheckView({
               <strong>Total Income:</strong> ${incomeTotal.toFixed(2)}
             </div>
             <div>
-              <strong>Total Allocated:</strong> ${(expenseTotal + vaultTotal).toFixed(2)}
+              <strong>Total Allocated:</strong> $
+              {(expenseTotal + vaultTotal).toFixed(2)}
             </div>
             <div>
               <strong>Remaining Balance:</strong> ${remaining.toFixed(2)}
@@ -185,7 +255,9 @@ export default function ActivePaycheckView({
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
           <h2 className="text-lg font-semibold text-foreground mb-2">Income</h2>
           {income.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No income records</div>
+            <div className="text-sm text-muted-foreground">
+              No income records
+            </div>
           ) : (
             <div className="space-y-2">
               {income.map((item) => (
@@ -199,7 +271,9 @@ export default function ActivePaycheckView({
                   <div className="text-right text-sm text-muted-foreground">
                     <div>${Number(item.amount).toFixed(2)}</div>
                     {item.received_date && (
-                      <div className="text-xs">{formatDisplayDate(item.received_date)}</div>
+                      <div className="text-xs">
+                        {formatDisplayDate(item.received_date)}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -210,26 +284,41 @@ export default function ActivePaycheckView({
 
         {/* Expenses */}
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Expenses</h2>
-          {expenses.length === 0 ? (
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Expenses
+          </h2>
+          {sortedExpenses.length === 0 ? (
             <div className="text-sm text-muted-foreground">None</div>
           ) : (
             <div className="space-y-2">
-              {expenses.map((item) => (
+              {sortedExpenses.map((item) => (
                 <div
                   key={item.id}
                   className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-background"
                 >
-                  <div className="text-sm font-medium text-foreground">
+                  <div className="text-sm font-medium text-foreground flex items-center">
                     {item.label}
                     {item.origin === "oneoff" && (
-                      <span className="ml-2 text-xs text-purple-500">(One-Off)</span>
+                      <span className="ml-2 text-xs text-purple-500">
+                        (One-Off)
+                      </span>
+                    )}
+                    {!item.transaction_id && (
+                      <button
+                        onClick={() => setSelectedExpense(item)}
+                        className="ml-2 text-xs text-blue-500 underline"
+                        type="button"
+                      >
+                        Mark as Paid
+                      </button>
                     )}
                   </div>
                   <div className="text-right text-sm text-muted-foreground">
                     <div>${Number(item.amount).toFixed(2)}</div>
                     {item.expense_date && (
-                      <div className="text-xs">{formatDisplayDate(item.expense_date)}</div>
+                      <div className="text-xs">
+                        {formatDisplayDate(item.expense_date)}
+                      </div>
                     )}
                     {item.categories?.name && (
                       <div className="text-xs">{item.categories.name}</div>
@@ -243,7 +332,9 @@ export default function ActivePaycheckView({
 
         {/* Vault Contributions */}
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Vault Contributions</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Vault Contributions
+          </h2>
           {vaults.length === 0 ? (
             <div className="text-sm text-muted-foreground">None</div>
           ) : (
@@ -259,7 +350,9 @@ export default function ActivePaycheckView({
                   <div className="text-right text-sm text-muted-foreground">
                     <div>${Number(item.amount).toFixed(2)}</div>
                     {item.contribution_date && (
-                      <div className="text-xs">{formatDisplayDate(item.contribution_date)}</div>
+                      <div className="text-xs">
+                        {formatDisplayDate(item.contribution_date)}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -270,7 +363,9 @@ export default function ActivePaycheckView({
 
         {/* Transactions Log */}
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Transactions</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Transactions
+          </h2>
           {transactions.length === 0 ? (
             <div className="text-sm text-muted-foreground">No transactions</div>
           ) : (
@@ -281,22 +376,62 @@ export default function ActivePaycheckView({
                 {matchedTxns.length === 0 && (
                   <div className="text-xs text-muted-foreground">None</div>
                 )}
-                {matchedTxns.map((t) => (
-                  <div
-                    key={t.id}
-                    className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-green-50 dark:bg-green-900/20"
-                  >
-                    <div className="text-sm font-medium text-foreground">
-                      {t.description}
+                {matchedTxns.map((t) => {
+                  // Find all links for this transaction
+                  const links = expenseTransactionLinks.filter(
+                    (l) => l.transaction_id === t.id
+                  );
+                  // Find direct expense match (one-to-one)
+                  const directExpense = expenses.find(
+                    (e) => e.transaction_id === t.id
+                  );
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-green-50 dark:bg-green-900/20"
+                    >
+                      <div className="text-sm font-medium text-foreground">
+                        {t.description}
+                        {/* Show source if present */}
+                        {t.source && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            [{t.source}]
+                          </span>
+                        )}
+                        {/* Show linked expense(s) */}
+                        {links.length > 0 && (
+                          <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                            Linked to expense{links.length > 1 ? "s" : ""}:{" "}
+                            {links
+                              .map((l) => {
+                                const exp = expenses.find(
+                                  (e) => e.id === l.expense_id
+                                );
+                                return exp
+                                  ? `${exp.label} ($${l.matched_amount})`
+                                  : l.expense_id;
+                              })
+                              .join(", ")}
+                          </div>
+                        )}
+                        {directExpense && (
+                          <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                            Linked to expense: {directExpense.label} (full
+                            match)
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        <div>${Number(t.amount).toFixed(2)}</div>
+                        {t.posted_at && (
+                          <div className="text-xs">
+                            {formatDisplayDate(t.posted_at)}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right text-sm text-muted-foreground">
-                      <div>${Number(t.amount).toFixed(2)}</div>
-                      {t.posted_at && (
-                        <div className="text-xs">{formatDisplayDate(t.posted_at)}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Unmatched */}
@@ -312,11 +447,18 @@ export default function ActivePaycheckView({
                   >
                     <div className="text-sm font-medium text-foreground">
                       {t.description}
+                      {t.source && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          [{t.source}]
+                        </span>
+                      )}
                     </div>
                     <div className="text-right text-sm text-muted-foreground">
                       <div>${Number(t.amount).toFixed(2)}</div>
                       {t.posted_at && (
-                        <div className="text-xs">{formatDisplayDate(t.posted_at)}</div>
+                        <div className="text-xs">
+                          {formatDisplayDate(t.posted_at)}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -325,6 +467,109 @@ export default function ActivePaycheckView({
             </div>
           )}
         </section>
+        {/* Mark as Paid Modal */}
+        {selectedExpense && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md space-y-4">
+              <h2 className="text-lg font-semibold">Mark as Paid</h2>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const description = (
+                    form.elements.namedItem("description") as HTMLInputElement
+                  ).value;
+                  const posted_at = (
+                    form.elements.namedItem("posted_at") as HTMLInputElement
+                  ).value;
+                  const vault_id = (
+                    form.elements.namedItem("vault_id") as HTMLSelectElement
+                  ).value;
+                  setIsMarkingPaid(true);
+                  const { data: txn, error } = await supabase
+                    .from("transactions")
+                    .insert({
+                      user_id: expenses[0]?.user_id, // assumes all expenses are scoped
+                      amount: selectedExpense.amount,
+                      description,
+                      posted_at,
+                      source: "from_expense",
+                      vault_id: vault_id || null,
+                    })
+                    .select()
+                    .single();
+                  if (!error && txn) {
+                    await supabase
+                      .from("expenses")
+                      .update({ transaction_id: txn.id })
+                      .eq("id", selectedExpense.id);
+                    // Refresh expenses and transactions after marking as paid
+                    // Optionally, you may want to refetch, but for now just close modal
+                    setSelectedExpense(null);
+                  }
+                  setIsMarkingPaid(false);
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    name="description"
+                    defaultValue={selectedExpense.label}
+                    className="w-full border border-border bg-background p-2 rounded text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Date</label>
+                  <input
+                    type="date"
+                    name="posted_at"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                    className="w-full border border-border bg-background p-2 rounded text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">
+                    Vault (optional)
+                  </label>
+                  <select
+                    name="vault_id"
+                    className="w-full border border-border bg-background p-2 rounded text-sm"
+                    defaultValue=""
+                  >
+                    <option value="">None</option>
+                    {vaults.map((v) => (
+                      <option key={v.vault_id} value={v.vault_id}>
+                        {v.vaults?.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedExpense(null)}
+                    className="text-sm px-3 py-1 rounded border border-border"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isMarkingPaid}
+                    className="text-sm px-3 py-1 rounded bg-green-600 text-white"
+                  >
+                    {isMarkingPaid ? "Saving..." : "Confirm"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </AuthGuard>
   );
