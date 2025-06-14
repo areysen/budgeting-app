@@ -435,7 +435,23 @@ export default function BudgetPlanningForm({
       }));
 
     await supabase.from("expenses").insert([...fixedRows, ...oneOffRows]);
-    await supabase.from("vault_contributions").insert(vaultRows);
+    const { data: insertedContribs } = await supabase
+      .from("vault_contributions")
+      .insert(vaultRows)
+      .select("id, vault_id, amount, contribution_date");
+
+    if (insertedContribs) {
+      const activityRows = insertedContribs.map((c) => ({
+        user_id: userId,
+        vault_id: c.vault_id,
+        amount: c.amount,
+        activity_date: c.contribution_date ?? new Date().toISOString().slice(0, 10),
+        source: "paycheck",
+        related_id: c.id,
+        notes: "Paycheck vault contribution",
+      }));
+      await supabase.from("vault_activity").insert(activityRows);
+    }
 
     // Insert income records for actual income at time of approval
     const incomeRows = incomeBreakdown.map((income) => ({

@@ -66,7 +66,14 @@ export default function VaultsPage() {
           ) : (
             <ul className="text-sm text-muted-foreground list-disc list-inside">
               {vaults.map((vault) => (
-                <li key={vault.id}>{vault.name}</li>
+                <li key={vault.id}>
+                  <a
+                    href={`/vaults/${vault.id}`}
+                    className="text-primary underline"
+                  >
+                    {vault.name}
+                  </a>
+                </li>
               ))}
             </ul>
           )}
