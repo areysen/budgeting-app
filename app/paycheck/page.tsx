@@ -50,7 +50,9 @@ export default function PaycheckPage() {
       new Date("2025-01-01"),
       new Date("2026-01-01")
     );
-    const idx = all.findIndex((p) => p.officialDate === selectedDate.officialDate);
+    const idx = all.findIndex(
+      (p) => p.officialDate === selectedDate.officialDate
+    );
     const next = idx !== -1 ? all[idx + 1] : undefined;
     const { start, end } = getPaycheckRange(selectedDate, next);
     setStart(start);
@@ -135,9 +137,7 @@ export default function PaycheckPage() {
           <BudgetPlanningForm
             paycheckId={paycheck.id}
             onApproved={() =>
-              setPaycheck((p) =>
-                p ? { ...p, approved: true } : p
-              )
+              setPaycheck((p) => (p ? { ...p, approved: true } : p))
             }
           />
         )}
