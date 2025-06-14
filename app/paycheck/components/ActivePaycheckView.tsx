@@ -218,20 +218,77 @@ export default function ActivePaycheckView({
   const totalCount = expenses.length;
 
   async function handleMarkAsPaid(id: string) {
-    const prevStatus = expenses.find((e) => e.id === id)?.status;
+    const expense = expenses.find((e) => e.id === id);
+    if (!expense) return;
+
+    const prevStatus = expense.status;
+    // Optimistically mark as paid in local state
     setExpenses((prev) =>
       prev.map((e) => (e.id === id ? { ...e, status: "paid" } : e))
     );
-    const { error } = await supabase
+
+    const { error: statusError } = await supabase
       .from("expenses")
       .update({ status: "paid" })
       .eq("id", id);
-    if (error) {
+
+    if (statusError) {
+      // Revert if error
       setExpenses((prev) =>
         prev.map((e) =>
           e.id === id ? { ...e, status: prevStatus ?? e.status } : e
         )
       );
+      return;
+    }
+
+    // Create transaction if one doesn't exist
+    if (!expense.transaction_id) {
+      const { data: user } = await supabase.auth.getUser();
+      const userId = user?.user?.id ?? null;
+
+      const { data: txn, error: txnError } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: userId,
+          vault_id: expense.vault_id,
+          amount: expense.amount,
+          description: expense.label,
+          source: "manual",
+          posted_at: new Date().toISOString().slice(0, 10),
+          category_id: expense.category_id,
+        })
+        .select("*")
+        .single();
+
+      if (!txnError && txn) {
+        await supabase
+          .from("expenses")
+          .update({ transaction_id: txn.id })
+          .eq("id", expense.id);
+
+        // Update local expense record and transactions list
+        setExpenses((prev) =>
+          prev.map((e) =>
+            e.id === id ? { ...e, transaction_id: txn.id, status: "paid" } : e
+          )
+        );
+        setTransactions((prev) => [...prev, txn]);
+
+        const { data: link } = await supabase
+          .from("expense_transaction_links")
+          .insert({
+            expense_id: expense.id,
+            transaction_id: txn.id,
+            matched_amount: expense.amount,
+          })
+          .select("*")
+          .single();
+
+        if (link) {
+          setExpenseTransactionLinks((prev) => [...prev, link]);
+        }
+      }
     }
   }
 
