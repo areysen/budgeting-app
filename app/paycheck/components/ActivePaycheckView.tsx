@@ -260,7 +260,7 @@ export default function ActivePaycheckView({
       const { data: txn, error: txnError } = await supabase
         .from("transactions")
         .insert({
-          user_id: userId,
+          user_id: userId ?? "default_user_id",
           vault_id: expense.vault_id,
           amount: expense.amount,
           description: expense.label,
@@ -274,10 +274,11 @@ export default function ActivePaycheckView({
       if (!txnError && txn) {
         if (txn.vault_id) {
           await supabase.from("vault_activity").insert({
-            user_id: userId,
+            user_id: userId ?? "default_user_id",
             vault_id: txn.vault_id,
             amount: -txn.amount,
-            activity_date: txn.posted_at ?? new Date().toISOString().slice(0, 10),
+            activity_date:
+              txn.posted_at ?? new Date().toISOString().slice(0, 10),
             source: "transaction",
             related_id: txn.id,
             notes: "Spent from vault",
@@ -583,7 +584,9 @@ export default function ActivePaycheckView({
 
         {paycheckVaults.length > 0 && (
           <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-foreground mb-2">Vault Activity</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-2">
+              Vault Activity
+            </h2>
             {paycheckVaults.map(([id, name]) => (
               <div key={id} className="space-y-1">
                 <h3 className="font-semibold text-sm">{name}</h3>
