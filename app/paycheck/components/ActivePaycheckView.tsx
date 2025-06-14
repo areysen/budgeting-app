@@ -273,7 +273,7 @@ export default function ActivePaycheckView({
             e.id === id ? { ...e, transaction_id: txn.id, status: "paid" } : e
           )
         );
-        setTransactions((prev) => [...prev, txn]);
+        setTransactions((prev) => [...prev, { ...txn, vaults: null }]);
 
         const { data: link } = await supabase
           .from("expense_transaction_links")
@@ -364,7 +364,9 @@ export default function ActivePaycheckView({
 
         {/* Expenses */}
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Expenses</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            Expenses
+          </h2>
           <div className="text-sm text-muted-foreground mb-2">
             {totalCount} items — {paidCount} paid / {unpaidCount} unpaid
           </div>
@@ -385,10 +387,14 @@ export default function ActivePaycheckView({
                       </span>
                     )}
                     {item.status === "paid" ? (
-                      <span className="ml-2 text-xs text-green-600">✔ Paid</span>
+                      <span className="ml-2 text-xs text-green-600">
+                        ✔ Paid
+                      </span>
                     ) : (
                       <>
-                        <span className="ml-2 text-xs text-yellow-600">🟡 Planned</span>
+                        <span className="ml-2 text-xs text-yellow-600">
+                          🟡 Planned
+                        </span>
                         <button
                           onClick={() => handleMarkAsPaid(item.id)}
                           className="ml-2 text-xs text-blue-500 underline"
