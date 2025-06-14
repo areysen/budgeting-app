@@ -206,11 +206,34 @@ export default function ActivePaycheckView({
     );
   }, [expenses]);
 
-  // Mark as Paid modal state
-  const [selectedExpense, setSelectedExpense] = useState<ExpenseRow | null>(
-    null
+  // Expense status counts
+  const paidCount = useMemo(
+    () => expenses.filter((e) => e.status === "paid").length,
+    [expenses]
   );
-  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+  const unpaidCount = useMemo(
+    () => expenses.filter((e) => e.status !== "paid").length,
+    [expenses]
+  );
+  const totalCount = expenses.length;
+
+  async function handleMarkAsPaid(id: string) {
+    const prevStatus = expenses.find((e) => e.id === id)?.status;
+    setExpenses((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, status: "paid" } : e))
+    );
+    const { error } = await supabase
+      .from("expenses")
+      .update({ status: "paid" })
+      .eq("id", id);
+    if (error) {
+      setExpenses((prev) =>
+        prev.map((e) =>
+          e.id === id ? { ...e, status: prevStatus ?? e.status } : e
+        )
+      );
+    }
+  }
 
   if (!paycheck || !paycheckDate || loading) {
     return (
@@ -284,9 +307,10 @@ export default function ActivePaycheckView({
 
         {/* Expenses */}
         <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-2">
-          <h2 className="text-lg font-semibold text-foreground mb-2">
-            Expenses
-          </h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">Expenses</h2>
+          <div className="text-sm text-muted-foreground mb-2">
+            {totalCount} items — {paidCount} paid / {unpaidCount} unpaid
+          </div>
           {sortedExpenses.length === 0 ? (
             <div className="text-sm text-muted-foreground">None</div>
           ) : (
@@ -303,14 +327,19 @@ export default function ActivePaycheckView({
                         (One-Off)
                       </span>
                     )}
-                    {!item.transaction_id && (
-                      <button
-                        onClick={() => setSelectedExpense(item)}
-                        className="ml-2 text-xs text-blue-500 underline"
-                        type="button"
-                      >
-                        Mark as Paid
-                      </button>
+                    {item.status === "paid" ? (
+                      <span className="ml-2 text-xs text-green-600">✔ Paid</span>
+                    ) : (
+                      <>
+                        <span className="ml-2 text-xs text-yellow-600">🟡 Planned</span>
+                        <button
+                          onClick={() => handleMarkAsPaid(item.id)}
+                          className="ml-2 text-xs text-blue-500 underline"
+                          type="button"
+                        >
+                          Mark as Paid
+                        </button>
+                      </>
                     )}
                   </div>
                   <div className="text-right text-sm text-muted-foreground">
@@ -467,109 +496,6 @@ export default function ActivePaycheckView({
             </div>
           )}
         </section>
-        {/* Mark as Paid Modal */}
-        {selectedExpense && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md space-y-4">
-              <h2 className="text-lg font-semibold">Mark as Paid</h2>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const form = e.target as HTMLFormElement;
-                  const description = (
-                    form.elements.namedItem("description") as HTMLInputElement
-                  ).value;
-                  const posted_at = (
-                    form.elements.namedItem("posted_at") as HTMLInputElement
-                  ).value;
-                  const vault_id = (
-                    form.elements.namedItem("vault_id") as HTMLSelectElement
-                  ).value;
-                  setIsMarkingPaid(true);
-                  const { data: txn, error } = await supabase
-                    .from("transactions")
-                    .insert({
-                      user_id: expenses[0]?.user_id, // assumes all expenses are scoped
-                      amount: selectedExpense.amount,
-                      description,
-                      posted_at,
-                      source: "from_expense",
-                      vault_id: vault_id || null,
-                    })
-                    .select()
-                    .single();
-                  if (!error && txn) {
-                    await supabase
-                      .from("expenses")
-                      .update({ transaction_id: txn.id })
-                      .eq("id", selectedExpense.id);
-                    // Refresh expenses and transactions after marking as paid
-                    // Optionally, you may want to refetch, but for now just close modal
-                    setSelectedExpense(null);
-                  }
-                  setIsMarkingPaid(false);
-                }}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium">
-                    Description
-                  </label>
-                  <input
-                    type="text"
-                    name="description"
-                    defaultValue={selectedExpense.label}
-                    className="w-full border border-border bg-background p-2 rounded text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">Date</label>
-                  <input
-                    type="date"
-                    name="posted_at"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                    className="w-full border border-border bg-background p-2 rounded text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">
-                    Vault (optional)
-                  </label>
-                  <select
-                    name="vault_id"
-                    className="w-full border border-border bg-background p-2 rounded text-sm"
-                    defaultValue=""
-                  >
-                    <option value="">None</option>
-                    {vaults.map((v) => (
-                      <option key={v.vault_id} value={v.vault_id}>
-                        {v.vaults?.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedExpense(null)}
-                    className="text-sm px-3 py-1 rounded border border-border"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isMarkingPaid}
-                    className="text-sm px-3 py-1 rounded bg-green-600 text-white"
-                  >
-                    {isMarkingPaid ? "Saving..." : "Confirm"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </AuthGuard>
   );
