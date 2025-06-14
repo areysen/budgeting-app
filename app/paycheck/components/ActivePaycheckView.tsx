@@ -7,6 +7,7 @@ import { formatDisplayDate, formatDateRange } from "@/lib/utils/date/format";
 import { generatePaycheckDates } from "@/lib/utils/generatePaycheckDates";
 import { getPaycheckRange } from "@/lib/utils/date/paycheck";
 import type { Database } from "@/types/supabase";
+import VaultActivityList from "@/components/vaults/VaultActivityList";
 
 interface ActivePaycheckViewProps {
   paycheckId: string;
@@ -217,6 +218,15 @@ export default function ActivePaycheckView({
   );
   const totalCount = expenses.length;
 
+  const paycheckVaults = useMemo(() => {
+    const map = new Map<string, string>();
+    vaults.forEach((v) => map.set(v.vault_id, v.vaults?.name ?? ""));
+    expenses.forEach((e) => {
+      if (e.vault_id) map.set(e.vault_id, e.vaults?.name ?? "");
+    });
+    return Array.from(map.entries());
+  }, [vaults, expenses]);
+
   async function handleMarkAsPaid(id: string) {
     const expense = expenses.find((e) => e.id === id);
     if (!expense) return;
@@ -262,6 +272,17 @@ export default function ActivePaycheckView({
         .single();
 
       if (!txnError && txn) {
+        if (txn.vault_id) {
+          await supabase.from("vault_activity").insert({
+            user_id: userId,
+            vault_id: txn.vault_id,
+            amount: -txn.amount,
+            activity_date: txn.posted_at ?? new Date().toISOString().slice(0, 10),
+            source: "transaction",
+            related_id: txn.id,
+            notes: "Spent from vault",
+          });
+        }
         await supabase
           .from("expenses")
           .update({ transaction_id: txn.id })
@@ -559,6 +580,18 @@ export default function ActivePaycheckView({
             </div>
           )}
         </section>
+
+        {paycheckVaults.length > 0 && (
+          <section className="bg-muted/10 border border-border ring-border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground mb-2">Vault Activity</h2>
+            {paycheckVaults.map(([id, name]) => (
+              <div key={id} className="space-y-1">
+                <h3 className="font-semibold text-sm">{name}</h3>
+                <VaultActivityList vaultId={id} />
+              </div>
+            ))}
+          </section>
+        )}
       </div>
     </AuthGuard>
   );
