@@ -697,6 +697,47 @@ export type Database = {
           },
         ]
       }
+      vault_activity: {
+        Row: {
+          amount: number
+          description: string | null
+          id: string
+          recorded_at: string | null
+          related_id: string | null
+          source: string | null
+          user_id: string
+          vault_id: string
+        }
+        Insert: {
+          amount: number
+          description?: string | null
+          id?: string
+          recorded_at?: string | null
+          related_id?: string | null
+          source?: string | null
+          user_id: string
+          vault_id: string
+        }
+        Update: {
+          amount?: number
+          description?: string | null
+          id?: string
+          recorded_at?: string | null
+          related_id?: string | null
+          source?: string | null
+          user_id?: string
+          vault_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_activity_vault_id_fkey"
+            columns: ["vault_id"]
+            isOneToOne: false
+            referencedRelation: "vaults"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vault_contributions: {
         Row: {
           amount: number
@@ -750,23 +791,38 @@ export type Database = {
       }
       vaults: {
         Row: {
+          archived: boolean | null
           created_at: string | null
           id: string
+          is_roundup: boolean | null
+          is_sofi_linked: boolean | null
+          manual_balance_override: number | null
           name: string
+          notes: string | null
           target_amount: number | null
           user_id: string | null
         }
         Insert: {
+          archived?: boolean | null
           created_at?: string | null
           id?: string
+          is_roundup?: boolean | null
+          is_sofi_linked?: boolean | null
+          manual_balance_override?: number | null
           name: string
+          notes?: string | null
           target_amount?: number | null
           user_id?: string | null
         }
         Update: {
+          archived?: boolean | null
           created_at?: string | null
           id?: string
+          is_roundup?: boolean | null
+          is_sofi_linked?: boolean | null
+          manual_balance_override?: number | null
           name?: string
+          notes?: string | null
           target_amount?: number | null
           user_id?: string | null
         }
