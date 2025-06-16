@@ -174,7 +174,7 @@ export default function BudgetPlanningForm({
     setIsLoadingFixedItems(true);
     supabase
       .from("fixed_items")
-      .select("*, categories(name)")
+      .select("*, categories(id, name)")
       .then(({ data }) => {
         if (!data) return;
         const items = data.map(normalizeFixedItem);
@@ -445,7 +445,8 @@ export default function BudgetPlanningForm({
         user_id: userId,
         vault_id: c.vault_id,
         amount: c.amount,
-        activity_date: c.contribution_date ?? new Date().toISOString().slice(0, 10),
+        activity_date:
+          c.contribution_date ?? new Date().toISOString().slice(0, 10),
         source: "paycheck",
         related_id: c.id,
         notes: "Paycheck vault contribution",
