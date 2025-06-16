@@ -124,3 +124,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide Next.js dev overlay unless there is an error */
+.nextjs-toast {
+  display: none !important;
+}
+.nextjs-toast-errors {
+  display: flex !important;
+}
