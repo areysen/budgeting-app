@@ -18,7 +18,7 @@ export default function ConnectBank() {
 
   useEffect(() => {
     const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      const { data } = await supabase.auth.getSession();
       if (data?.session?.access_token) {
         setAccessToken(data.session.access_token);
       }

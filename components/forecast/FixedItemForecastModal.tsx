@@ -135,8 +135,7 @@ export default function FixedItemForecastModal({
       .upsert(payload, { onConflict: "user_id,fixed_item_id,forecast_start" });
 
     // Use Next.js router.refresh and toast
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const toast = require("react-hot-toast").toast;
+    const toast = (await import("react-hot-toast")).toast;
     toast.success("✅ Forecast adjustment saved. Refreshing...");
     router.refresh();
     if (onSaved) onSaved(); // Ensure this triggers refresh after saving

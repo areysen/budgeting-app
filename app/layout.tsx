@@ -1,6 +1,6 @@
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import { TopNav } from "@/components/layout/TopNav";
+// import { TopNav } from "@/components/layout/TopNav"; // Removed unused import
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Inter } from "next/font/google";
 
@@ -28,7 +28,7 @@ export default function RootLayout({
       >
         <div className="min-h-screen flex flex-col">
           <main className="flex-1">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8 pb-26">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8 pb-20">
               {children}
             </div>
           </main>

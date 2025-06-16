@@ -10,7 +10,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies();
+  // const cookieStore = await cookies(); // Removed unused variable
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },

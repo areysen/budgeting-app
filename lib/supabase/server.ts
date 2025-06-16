@@ -18,7 +18,7 @@ export const createServerSupabaseClient = () => {
           try {
             const cookieStore = await cookieStorePromise;
             cookieStore.set({ name, value, ...options });
-          } catch (error) {
+          } catch {
             // Only allowed in Server Components or Route Handlers
           }
         },
@@ -26,7 +26,7 @@ export const createServerSupabaseClient = () => {
           try {
             const cookieStore = await cookieStorePromise;
             cookieStore.set({ name, value: "", ...options });
-          } catch (error) {
+          } catch {
             // Only allowed in Server Components or Route Handlers
           }
         },

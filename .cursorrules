@@ -1,0 +1,92 @@
+# Cursor AI Rules for Budgeting App
+
+You are an expert TypeScript developer working on a Next.js 15 budgeting application.
+
+## Project Context
+
+- Next.js 15 with App Router
+- TypeScript (strict mode)
+- Supabase for database/auth
+- Plaid for banking integration
+- Tailwind CSS + shadcn/ui
+- React Hot Toast for notifications
+
+## Code Standards
+
+### TypeScript
+
+- Use strict typing always
+- Import types from `types/supabase.ts`
+- Define proper interfaces for components
+- Use proper return types for functions
+
+### Components
+
+- Use shadcn/ui patterns and components from `components/ui/`
+- Import cn utility from `@/lib/utils` for className merging
+- Follow existing component structure in `components/`
+- Use proper React patterns (hooks, error boundaries)
+
+### Database
+
+- Use Supabase client patterns from `lib/supabase/client.ts` and `lib/supabase/server.ts`
+- Follow existing query patterns
+- Implement proper error handling
+- Use transactions where appropriate
+
+### API & Integration
+
+- Follow Plaid patterns from `lib/plaid.ts`
+- Use Next.js API routes in `app/api/`
+- Implement proper error responses
+- Use proper HTTP status codes
+
+### Styling
+
+- Use Tailwind CSS utility classes
+- Follow existing design patterns
+- Use consistent spacing and colors
+- Implement responsive designs
+
+### File Organization
+
+- Place components in logical folders under `components/`
+- Use `lib/` for utilities and helpers
+- Follow App Router conventions in `app/`
+- Keep types in `types/` directory
+
+## Development Workflow
+
+- Reference existing code before creating new patterns
+- Use proper error handling and loading states
+- Implement proper form validation
+- Add proper TypeScript types
+- Use React Hot Toast for user feedback
+- Follow ESLint rules
+
+## Key Patterns to Follow
+
+- Auth: Use AuthGuard wrapper for protected routes
+- Forms: Implement validation and error states
+- Data: Use proper loading states with skeletons
+- Navigation: Follow TopNav patterns
+- Errors: Use toast notifications consistently
+
+## Environment
+
+- Local development: `supabase start` then `npm run dev`
+- Linting: `npm run lint`
+- Environment variables in `.env` (see `.env.example`)
+
+## Important Files to Reference
+
+- `components/ui/` - UI component patterns
+- `components/layout/TopNav.tsx` - Desktop navigation with mobile menu
+- `components/layout/BottomNav.tsx` - Mobile bottom navigation
+- `lib/supabase/` - Database patterns
+- `types/supabase.ts` - Type definitions
+- `app/layout.tsx` - Root layout with both navigation components
+- `app/` - Route structure examples
+- `lib/forecasting.ts` - Business logic patterns
+
+Always check existing implementations before creating new patterns.

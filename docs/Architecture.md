@@ -23,4 +23,3 @@ Next.js (App Router)
 4. Pages query Supabase to display data in the dashboard.
 
 This layered approach keeps the front‑end and back‑end loosely coupled while leveraging Supabase as a hosted database and authentication service.
-

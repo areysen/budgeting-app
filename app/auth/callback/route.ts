@@ -21,12 +21,12 @@ export async function GET(request: NextRequest) {
           set(name: string, value: string, options) {
             try {
               cookieStore.set({ name, value, ...options });
-            } catch (_) {}
+            } catch {}
           },
           remove(name: string, options) {
             try {
               cookieStore.set({ name, value: "", ...options });
-            } catch (_) {}
+            } catch {}
           },
         },
       }

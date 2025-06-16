@@ -1,0 +1,17 @@
+{
+    "rules": [
+        "Always use TypeScript with strict typing",
+        "Follow shadcn/ui component patterns",
+        "Use Tailwind CSS for styling",
+        "Reference existing code patterns before creating new ones",
+        "Implement proper error handling and loading states",
+        "Use Supabase client patterns from lib/supabase/",
+        "Follow Next.js App Router conventions"
+    ],
+    "eslintIntegration": true,
+    "suggestions": {
+        "enabled": true,
+        "typescript": true,
+        "react": true
+    }
+}
