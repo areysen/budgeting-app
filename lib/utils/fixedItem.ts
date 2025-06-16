@@ -1,8 +1,11 @@
 import { FixedItem } from "@/types";
+import type { Database } from "@/types/supabase";
 
-export function normalizeFixedItem(
-  item: Partial<FixedItem> & { category_id?: string | null }
-): FixedItem {
+type SupabaseFixedItem = Database["public"]["Tables"]["fixed_items"]["Row"] & {
+  categories?: { id: string; name: string } | null;
+};
+
+export function normalizeFixedItem(item: SupabaseFixedItem): FixedItem {
   return {
     ...item,
     due_days: item.due_days ? item.due_days.map(String) : undefined,
