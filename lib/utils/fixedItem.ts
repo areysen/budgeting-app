@@ -1,6 +1,8 @@
 import { FixedItem } from "@/types";
 
-export function normalizeFixedItem(item: Partial<FixedItem>): FixedItem {
+export function normalizeFixedItem(
+  item: Partial<FixedItem> & { category_id?: string | null }
+): FixedItem {
   return {
     ...item,
     due_days: item.due_days ? item.due_days.map(String) : undefined,

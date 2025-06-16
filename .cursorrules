@@ -77,6 +77,15 @@ You are an expert TypeScript developer working on a Next.js 15 budgeting applica
 - Local development: `supabase start` then `npm run dev`
 - Linting: `npm run lint`
 - Environment variables in `.env` (see `.env.example`)
+- **Production**: Deployed on Vercel - ensure serverless compatibility
+
+## Vercel Deployment Considerations
+
+- Use Next.js API routes (compatible with Vercel Functions)
+- Avoid file system operations that don't work in serverless
+- Keep bundle sizes within Vercel limits
+- Configure environment variables in Vercel dashboard
+- Test edge cases that might behave differently in production
 
 ## Important Files to Reference
 
