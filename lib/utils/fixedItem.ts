@@ -7,6 +7,6 @@ export function normalizeFixedItem(
     ...item,
     due_days: item.due_days ? item.due_days.map(String) : undefined,
     weekly_day: item.weekly_day ?? undefined,
-    category_id: item.category_id ?? undefined,
+    category_id: item.category_id === null ? undefined : item.category_id,
   } as FixedItem;
 }
